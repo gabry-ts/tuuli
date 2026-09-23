@@ -18,10 +18,13 @@ final class IconSpinner {
             angle = 0
             return
         }
-        // The glyph has four blades, so a quarter turn loops seamlessly.
-        step = 6 + 12 * min(max(percent, 0), 100) / 100
+        // The glyph has four blades, so a quarter turn loops seamlessly. Steps stay under
+        // 45° per frame, beyond which the blades would seem to turn backwards.
+        step = 8 + 32 * min(max(percent, 0), 100) / 100
         guard timer == nil else { return }
-        let timer = Timer(timeInterval: 1.0 / 12, repeats: true) { [weak self] _ in
+        // Every frame makes AppKit re-snapshot the status item on each display, so the
+        // rate stays low; 10 fps still reads as smooth motion.
+        let timer = Timer(timeInterval: 1.0 / 10, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.angle = (self.angle + self.step).truncatingRemainder(dividingBy: 90)
