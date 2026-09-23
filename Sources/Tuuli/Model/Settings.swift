@@ -178,6 +178,8 @@ struct Settings: Codable, Hashable {
     var logging = LoggingSettings()
     var historyMinutes = 15
     var showAllSensors = false
+    /// How much of the desktop shows through windows and the popover, 0...0.8.
+    var transparency = 0.2
 
     init() {
         activeModeID = modes[1].id
@@ -214,6 +216,7 @@ struct Settings: Codable, Hashable {
         logging = try c.decodeIfPresent(LoggingSettings.self, forKey: .logging) ?? d.logging
         historyMinutes = try c.decodeIfPresent(Int.self, forKey: .historyMinutes) ?? d.historyMinutes
         showAllSensors = try c.decodeIfPresent(Bool.self, forKey: .showAllSensors) ?? d.showAllSensors
+        transparency = try c.decodeIfPresent(Double.self, forKey: .transparency) ?? d.transparency
         if !modes.contains(where: { $0.id == activeModeID }) { activeModeID = modes[0].id }
     }
 

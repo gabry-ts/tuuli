@@ -135,6 +135,17 @@ struct GeneralView: View {
                 if LoginItem.status == .requiresApproval {
                     Button("Approve in System Settings…") { LoginItem.openSystemSettings() }
                 }
+                LabeledContent("Transparency") {
+                    HStack {
+                        Image(systemName: "square.fill")
+                            .foregroundStyle(.secondary)
+                        Slider(value: $store.settings.transparency, in: 0...0.8)
+                            .tint(Theme.sky)
+                        Image(systemName: "square.dashed")
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: 260)
+                }
                 Picker("Temperature unit", selection: $store.settings.unit) {
                     Text("Celsius").tag(TemperatureUnit.celsius)
                     Text("Fahrenheit").tag(TemperatureUnit.fahrenheit)

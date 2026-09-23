@@ -57,11 +57,14 @@ struct BehindWindowBlur: NSViewRepresentable {
 /// and two soft glows. "Reduce transparency" turns the blur solid automatically.
 struct AirBackground: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(SettingsStore.self) private var store
 
     var body: some View {
         let dark = colorScheme == .dark
+        let solidity = 1 - store.settings.transparency
         ZStack {
             BehindWindowBlur()
+                .opacity(0.35 + 0.65 * solidity)
             LinearGradient(
                 colors: dark
                     ? [Color(red: 0.07, green: 0.10, blue: 0.16), Color(red: 0.05, green: 0.07, blue: 0.11)]
@@ -69,7 +72,7 @@ struct AirBackground: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .opacity(0.62)
+            .opacity(0.85 * solidity)
             GeometryReader { proxy in
                 Circle()
                     .fill(Theme.sky.opacity(dark ? 0.22 : 0.20))
