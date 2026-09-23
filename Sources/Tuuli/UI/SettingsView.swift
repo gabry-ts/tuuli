@@ -74,11 +74,14 @@ struct SettingsView: View {
                     paneRow(.general)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AirBackground())
             .navigationSplitViewColumnWidth(min: 190, ideal: 210)
         } detail: {
             detail
         }
         .frame(minWidth: 920, minHeight: 560)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .alert("Rename Mode", isPresented: renameBinding) {
             TextField("Name", text: $renameText)
             Button("Cancel", role: .cancel) {}

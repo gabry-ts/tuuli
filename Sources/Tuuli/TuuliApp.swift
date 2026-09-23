@@ -123,12 +123,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .environment(engine)
             .environment(helper)
         let controller = NSHostingController(rootView: view)
-        controller.sceneBridgingOptions = [.title, .toolbars]
+        controller.sceneBridgingOptions = [.toolbars]
         let window = NSWindow(contentViewController: controller)
         window.title = "Tuuli"
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        // One continuous surface: the sky runs under a clear title bar, and each page
+        // carries its own large title.
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.setContentSize(NSSize(width: 1040, height: 680))
         window.minSize = NSSize(width: 920, height: 560)
         window.center()
