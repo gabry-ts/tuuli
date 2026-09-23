@@ -101,6 +101,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.styleMask = [.titled, .closable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.isMovableByWindowBackground = true
         window.center()
         window.isReleasedWhenClosed = false
@@ -124,6 +126,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.sceneBridgingOptions = [.title, .toolbars]
         let window = NSWindow(contentViewController: controller)
         window.title = "Tuuli"
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.setContentSize(NSSize(width: 1040, height: 680))
         window.minSize = NSSize(width: 920, height: 560)

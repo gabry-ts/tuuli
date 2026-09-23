@@ -40,13 +40,28 @@ enum Theme {
 
 // MARK: - Backgrounds and cards
 
-/// The window backdrop: a pale sky with two soft blurred glows.
+/// Blurs whatever is behind the window.
+struct BehindWindowBlur: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .underWindowBackground
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+}
+
+/// The window backdrop: the desktop blurred through the window, tinted with a pale sky
+/// and two soft glows. "Reduce transparency" turns the blur solid automatically.
 struct AirBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let dark = colorScheme == .dark
         ZStack {
+            BehindWindowBlur()
             LinearGradient(
                 colors: dark
                     ? [Color(red: 0.07, green: 0.10, blue: 0.16), Color(red: 0.05, green: 0.07, blue: 0.11)]
@@ -54,6 +69,7 @@ struct AirBackground: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
+            .opacity(0.62)
             GeometryReader { proxy in
                 Circle()
                     .fill(Theme.sky.opacity(dark ? 0.22 : 0.20))
