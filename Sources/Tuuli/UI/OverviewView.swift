@@ -117,6 +117,19 @@ struct HistoryChart: View {
 
     var body: some View {
         let unit = store.settings.unit
+        if samples.count < 3 {
+            ContentUnavailableView {
+                Label("Catching the breeze", systemImage: "wind")
+            } description: {
+                Text("History fills in as Tuuli keeps watching.")
+            }
+            .frame(height: 200)
+        } else {
+            chart(unit: unit)
+        }
+    }
+
+    private func chart(unit: TemperatureUnit) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Chart {
                 ForEach(series, id: \.self) { aggregate in
