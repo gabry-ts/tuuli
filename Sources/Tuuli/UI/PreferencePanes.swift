@@ -44,6 +44,7 @@ struct AlertsView: View {
 
 struct MenuBarSettingsView: View {
     @Environment(SettingsStore.self) private var store
+    @State private var newSensor = Aggregate.hottest.sensorID
 
     var body: some View {
         @Bindable var store = store
@@ -53,12 +54,78 @@ struct MenuBarSettingsView: View {
                 SensorPicker(title: "First temperature", optionalSelection: $store.settings.menuBar.primarySensor)
                 SensorPicker(title: "Second temperature", optionalSelection: $store.settings.menuBar.secondarySensor)
                 Toggle("Show fan speed", isOn: $store.settings.menuBar.showFanSpeed)
+            } header: {
+                Text("Status Item")
             } footer: {
                 Text("With nothing else selected, the icon is always shown.")
                     .foregroundStyle(.secondary)
             }
+
+            Section {
+                Toggle("Temperatures", isOn: $store.settings.popover.showTemperatures)
+                if store.settings.popover.showTemperatures {
+                    temperatureList
+                }
+            } header: {
+                Text("Popover")
+            }
+
+            Section {
+                Toggle("Chart", isOn: $store.settings.popover.showChart)
+                if store.settings.popover.showChart {
+                    SensorPicker(title: "Sensor", selection: $store.settings.popover.chartSensor)
+                    Picker("Window", selection: $store.settings.popover.chartMinutes) {
+                        Text("5 min").tag(5)
+                        Text("15 min").tag(15)
+                        Text("60 min").tag(60)
+                    }
+                }
+                Toggle("Fan speeds", isOn: $store.settings.popover.showFans)
+                Toggle("Profile picker", isOn: $store.settings.popover.showProfilePicker)
+            } footer: {
+                Text("The profile picker also shows a speed slider when the active profile is manual.")
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
+    }
+
+    @ViewBuilder
+    private var temperatureList: some View {
+        @Bindable var store = store
+        let sensors = store.settings.popover.temperatureSensors
+        ForEach(Array(sensors.enumerated()), id: \.offset) { index, _ in
+            HStack {
+                SensorPicker(title: "", selection: $store.settings.popover.temperatureSensors[index])
+                    .labelsHidden()
+                    .fixedSize()
+                Spacer()
+                Button {
+                    store.settings.popover.temperatureSensors.swapAt(index, index - 1)
+                } label: {
+                    Image(systemName: "chevron.up")
+                }
+                .disabled(index == 0)
+                Button {
+                    store.settings.popover.temperatureSensors.swapAt(index, index + 1)
+                } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .disabled(index == sensors.count - 1)
+                Button(role: .destructive) {
+                    store.settings.popover.temperatureSensors.remove(at: index)
+                } label: {
+                    Image(systemName: "minus.circle")
+                }
+            }
+            .buttonStyle(.borderless)
+        }
+        HStack {
+            SensorPicker(title: "Add", selection: $newSensor)
+            Button("Add") {
+                store.settings.popover.temperatureSensors.append(newSensor)
+            }
+        }
     }
 }
 
@@ -140,6 +207,26 @@ struct GeneralView: View {
                 Text("Fan Control Helper")
             } footer: {
                 Text("Writing fan speeds needs root. The helper is a small background service that only sets fan speeds, and hands the fans back to macOS if Tuuli quits, crashes or the Mac sleeps.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Picker("On power adapter", selection: $store.settings.adapterProfileID) {
+                    ForEach(store.settings.profiles) { profile in
+                        Text(profile.name).tag(profile.id)
+                    }
+                }
+                if PowerSource.hasBattery {
+                    Picker("On battery", selection: $store.settings.batteryProfileID) {
+                        ForEach(store.settings.profiles) { profile in
+                            Text(profile.name).tag(profile.id)
+                        }
+                    }
+                }
+            } header: {
+                Text("Automatic Profiles")
+            } footer: {
+                Text("A profile picked from the menu bar stays active until the power source changes.")
                     .foregroundStyle(.secondary)
             }
 

@@ -2,11 +2,11 @@ import Charts
 import SwiftUI
 import TuuliCore
 
-struct FansView: View {
+struct ProfileEditorView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(Monitor.self) private var monitor
     @Environment(HelperClient.self) private var helper
-    @State private var editingBattery = false
+    let profileID: UUID
 
     var body: some View {
         Form {
@@ -17,24 +17,56 @@ struct FansView: View {
                 }
             }
             Section {
-                Toggle("Separate settings on battery", isOn: store.binding(\.separateBatteryConfig))
-                if store.settings.separateBatteryConfig {
-                    Picker("Editing", selection: $editingBattery) {
-                        Text("Power Adapter").tag(false)
-                        Text("Battery").tag(true)
-                    }
-                    .pickerStyle(.segmented)
+                TextField("Name", text: nameBinding)
+                assignmentToggle("Use on power adapter", keyPath: \.adapterProfileID)
+                if PowerSource.hasBattery {
+                    assignmentToggle("Use on battery", keyPath: \.batteryProfileID)
                 }
             } footer: {
-                Text("Now on \(monitor.isOnBattery ? "battery" : "power adapter").")
+                Text(activeFooter)
                     .foregroundStyle(.secondary)
             }
 
-            FanConfigEditor(config: store.binding(
-                store.settings.separateBatteryConfig && editingBattery ? \.batteryConfig : \.adapterConfig
-            ))
+            FanConfigEditor(config: configBinding)
         }
         .formStyle(.grouped)
+    }
+
+    private var activeFooter: String {
+        let isActive = store.settings.activeProfileID(onBattery: monitor.isOnBattery) == profileID
+        return isActive ? "Active now." : "Not active. Pick it from the menu bar to use it now."
+    }
+
+    /// On-only toggle: a power source always has exactly one profile, so it is
+    /// reassigned by turning it on in another profile.
+    private func assignmentToggle(_ title: String, keyPath: WritableKeyPath<Settings, UUID>) -> some View {
+        Toggle(title, isOn: Binding(
+            get: { store.settings[keyPath: keyPath] == profileID },
+            set: { if $0 { store.settings[keyPath: keyPath] = profileID } }
+        ))
+        .disabled(store.settings[keyPath: keyPath] == profileID)
+    }
+
+    private var nameBinding: Binding<String> {
+        Binding(
+            get: { store.settings.profiles.first { $0.id == profileID }?.name ?? "" },
+            set: { name in
+                if let index = store.settings.index(of: profileID), !name.isEmpty {
+                    store.settings.profiles[index].name = name
+                }
+            }
+        )
+    }
+
+    private var configBinding: Binding<FanConfig> {
+        Binding(
+            get: { store.settings.profiles.first { $0.id == profileID }?.config ?? FanConfig() },
+            set: { config in
+                if let index = store.settings.index(of: profileID) {
+                    store.settings.profiles[index].config = config
+                }
+            }
+        )
     }
 }
 

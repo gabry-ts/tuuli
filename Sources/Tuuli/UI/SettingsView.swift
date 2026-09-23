@@ -1,12 +1,15 @@
 import SwiftUI
+import TuuliCore
 
 struct SettingsView: View {
-    @State private var selection: Pane?
+    @Environment(SettingsStore.self) private var store
+    @State private var selection: SidebarItem?
+    @State private var renamingProfileID: UUID?
+    @State private var renameText = ""
 
     enum Pane: String, CaseIterable, Hashable {
         case overview
         case sensors
-        case fans
         case alerts
         case menuBar
         case logging
@@ -16,7 +19,6 @@ struct SettingsView: View {
             switch self {
             case .overview: "Overview"
             case .sensors: "Sensors"
-            case .fans: "Fan Control"
             case .alerts: "Alerts"
             case .menuBar: "Menu Bar"
             case .logging: "Logging"
@@ -28,7 +30,6 @@ struct SettingsView: View {
             switch self {
             case .overview: "chart.xyaxis.line"
             case .sensors: "thermometer.medium"
-            case .fans: "fan"
             case .alerts: "bell"
             case .menuBar: "menubar.rectangle"
             case .logging: "doc.text"
@@ -37,34 +38,145 @@ struct SettingsView: View {
         }
     }
 
-    init(initialSelection: Pane = .overview) {
+    enum SidebarItem: Hashable {
+        case pane(Pane)
+        case profile(UUID)
+    }
+
+    init(initialSelection: SidebarItem = .pane(.overview)) {
         _selection = State(initialValue: initialSelection)
     }
 
     var body: some View {
         NavigationSplitView {
-            List(Pane.allCases, id: \.self, selection: $selection) { pane in
-                Label(pane.title, systemImage: pane.icon)
+            List(selection: $selection) {
+                Section {
+                    paneRow(.overview)
+                    paneRow(.sensors)
+                }
+                Section("Profiles") {
+                    ForEach(store.settings.profiles) { profile in
+                        profileRow(profile)
+                            .tag(SidebarItem.profile(profile.id))
+                    }
+                    Button {
+                        selection = .profile(store.addProfile())
+                    } label: {
+                        Label("Add Profile", systemImage: "plus")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+                Section {
+                    paneRow(.alerts)
+                    paneRow(.menuBar)
+                    paneRow(.logging)
+                    paneRow(.general)
+                }
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 210)
         } detail: {
             detail
-                .navigationTitle(selection?.title ?? "Tuuli")
         }
         .frame(minWidth: 760, minHeight: 540)
+        .alert("Rename Profile", isPresented: renameBinding) {
+            TextField("Name", text: $renameText)
+            Button("Cancel", role: .cancel) {}
+            Button("Rename") {
+                if let renamingProfileID {
+                    store.renameProfile(renamingProfileID, to: renameText)
+                }
+            }
+        }
+    }
+
+    private func paneRow(_ pane: Pane) -> some View {
+        Label(pane.title, systemImage: pane.icon)
+            .tag(SidebarItem.pane(pane))
+    }
+
+    private func profileRow(_ profile: FanProfile) -> some View {
+        HStack {
+            Label(profile.name, systemImage: profile.config.mode.icon)
+            Spacer()
+            if profile.id == store.settings.adapterProfileID {
+                Image(systemName: "bolt.fill")
+                    .foregroundStyle(.secondary)
+                    .help("Used on power adapter")
+            }
+            if PowerSource.hasBattery, profile.id == store.settings.batteryProfileID {
+                Image(systemName: "battery.75percent")
+                    .foregroundStyle(.secondary)
+                    .help("Used on battery")
+            }
+        }
+        .contextMenu {
+            Button("Rename…") {
+                renameText = profile.name
+                renamingProfileID = profile.id
+            }
+            Button("Duplicate") {
+                if let id = store.duplicateProfile(profile.id) {
+                    selection = .profile(id)
+                }
+            }
+            Divider()
+            Button("Delete", role: .destructive) {
+                if selection == .profile(profile.id) {
+                    selection = .pane(.overview)
+                }
+                store.deleteProfile(profile.id)
+            }
+            .disabled(store.settings.profiles.count <= 1)
+        }
+    }
+
+    private var renameBinding: Binding<Bool> {
+        Binding(
+            get: { renamingProfileID != nil },
+            set: { if !$0 { renamingProfileID = nil } }
+        )
     }
 
     @ViewBuilder
     private var detail: some View {
         switch selection {
+        case .pane(let pane):
+            paneView(pane)
+                .navigationTitle(pane.title)
+        case .profile(let id):
+            if let profile = store.settings.profiles.first(where: { $0.id == id }) {
+                ProfileEditorView(profileID: id)
+                    .id(id)
+                    .navigationTitle(profile.name)
+            } else {
+                ContentUnavailableView("No Profile Selected", systemImage: "fan")
+            }
+        case nil:
+            ContentUnavailableView("Select a Section", systemImage: "sidebar.left")
+        }
+    }
+
+    @ViewBuilder
+    private func paneView(_ pane: Pane) -> some View {
+        switch pane {
         case .overview: OverviewView()
         case .sensors: SensorsView()
-        case .fans: FansView()
         case .alerts: AlertsView()
         case .menuBar: MenuBarSettingsView()
         case .logging: LoggingView()
         case .general: GeneralView()
-        case nil: ContentUnavailableView("Select a Section", systemImage: "sidebar.left")
+        }
+    }
+}
+
+extension FanMode {
+    var icon: String {
+        switch self {
+        case .system: "apple.logo"
+        case .boost: "arrow.up.circle"
+        case .curve: "point.topleft.down.to.point.bottomright.curvepath"
+        case .manual: "slider.horizontal.3"
         }
     }
 }

@@ -14,7 +14,10 @@ struct TuuliApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(openSettings: { appDelegate.openSettingsWindow() })
+            MenuContent(
+                openSettings: { appDelegate.openSettingsWindow() },
+                applyNow: { appDelegate.applyFans() }
+            )
                 .environment(appDelegate.store)
                 .environment(appDelegate.monitor)
                 .environment(appDelegate.engine)
@@ -36,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger = CSVLogger()
     private var settingsWindow: NSWindow?
     private var observedPollInterval: Double = 0
+    private var lastOnBattery: Bool?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let isFirstLaunch = !SettingsStore.hasSavedSettings
@@ -66,6 +70,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func tick() {
+        // A hand-picked profile lasts until the power source changes.
+        if let lastOnBattery, lastOnBattery != monitor.isOnBattery {
+            store.settings.overrideProfileID = nil
+        }
+        lastOnBattery = monitor.isOnBattery
         let settings = store.settings
         if settings.pollInterval != observedPollInterval {
             observedPollInterval = settings.pollInterval
@@ -74,6 +83,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engine.tick(monitor: monitor, settings: settings, helper: helper)
         notifier.check(settings: settings, monitor: monitor)
         logger.log(settings: settings.logging, monitor: monitor)
+    }
+
+    /// Re-evaluates the fans immediately after a change from the menu bar.
+    func applyFans() {
+        engine.tick(monitor: monitor, settings: store.settings, helper: helper)
     }
 
     func openSettingsWindow() {

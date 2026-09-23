@@ -15,7 +15,7 @@ final class FanEngine {
     private var lastConfig: FanConfig?
 
     func tick(monitor: Monitor, settings: Settings, helper: HelperClient) {
-        let config = settings.fanConfig(onBattery: monitor.isOnBattery)
+        let config = settings.activeProfile(onBattery: monitor.isOnBattery).config
         if config != lastConfig {
             policy.reset()
             lastConfig = config

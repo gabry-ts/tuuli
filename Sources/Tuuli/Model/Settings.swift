@@ -38,19 +38,44 @@ struct MenuBarSettings: Codable, Hashable {
     var showFanSpeed = false
 }
 
+/// What the menu bar popover shows, top to bottom.
+struct PopoverSettings: Codable, Hashable {
+    var showTemperatures = true
+    var temperatureSensors = [
+        Aggregate.cpuHottest.sensorID,
+        Aggregate.gpuHottest.sensorID,
+        Aggregate.ssdHottest.sensorID,
+        Aggregate.batteryHottest.sensorID,
+    ]
+    var showFans = true
+    var showProfilePicker = true
+    var showChart = true
+    var chartSensor = Aggregate.cpuHottest.sensorID
+    var chartMinutes = 5
+}
+
 struct LoggingSettings: Codable, Hashable {
     var isEnabled = false
     var interval: Double = 5
     var folderPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].path
 }
 
+struct FanProfile: Codable, Hashable, Identifiable {
+    var id = UUID()
+    var name: String
+    var config: FanConfig
+}
+
 struct Settings: Codable, Hashable {
     var pollInterval: Double = 2
     var unit: TemperatureUnit = .celsius
-    var adapterConfig = FanConfig.boost(threshold: 65)
-    var batteryConfig = FanConfig.boost(threshold: 70)
-    var separateBatteryConfig = true
+    var profiles: [FanProfile]
+    var adapterProfileID: UUID
+    var batteryProfileID: UUID
+    /// Profile picked by hand from the menu bar. Cleared when the power source changes.
+    var overrideProfileID: UUID?
     var menuBar = MenuBarSettings()
+    var popover = PopoverSettings()
     var alerts: [AlertRule] = [AlertRule(sensor: Aggregate.cpuHottest.sensorID, threshold: 95)]
     var alertCooldownMinutes: Double = 5
     var alertSound = false
@@ -58,28 +83,79 @@ struct Settings: Codable, Hashable {
     var historyMinutes = 15
     var showAllSensors = false
 
-    init() {}
+    init() {
+        self.init(adapter: .boost(threshold: 65), battery: .boost(threshold: 70))
+    }
+
+    private init(adapter: FanConfig, battery: FanConfig) {
+        let adapterProfile = FanProfile(name: "Power Adapter", config: adapter)
+        let batteryProfile = FanProfile(name: "Battery", config: battery)
+        profiles = [adapterProfile, batteryProfile]
+        adapterProfileID = adapterProfile.id
+        batteryProfileID = batteryProfile.id
+    }
+
+    /// Keys from before profiles existed.
+    private enum LegacyKeys: String, CodingKey {
+        case adapterConfig, batteryConfig, separateBatteryConfig
+    }
 
     /// Missing keys fall back to defaults, so settings files from older versions still load.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let profiles = try c.decodeIfPresent([FanProfile].self, forKey: .profiles), !profiles.isEmpty {
+            self.init()
+            self.profiles = profiles
+            adapterProfileID = try c.decodeIfPresent(UUID.self, forKey: .adapterProfileID) ?? profiles[0].id
+            batteryProfileID = try c.decodeIfPresent(UUID.self, forKey: .batteryProfileID) ?? profiles[0].id
+            overrideProfileID = try c.decodeIfPresent(UUID.self, forKey: .overrideProfileID)
+        } else {
+            let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+            let adapter = try legacy.decodeIfPresent(FanConfig.self, forKey: .adapterConfig) ?? .boost(threshold: 65)
+            let battery = try legacy.decodeIfPresent(FanConfig.self, forKey: .batteryConfig) ?? .boost(threshold: 70)
+            self.init(adapter: adapter, battery: battery)
+            if try legacy.decodeIfPresent(Bool.self, forKey: .separateBatteryConfig) == false {
+                batteryProfileID = adapterProfileID
+            }
+        }
         let d = Settings()
         pollInterval = try c.decodeIfPresent(Double.self, forKey: .pollInterval) ?? d.pollInterval
         unit = try c.decodeIfPresent(TemperatureUnit.self, forKey: .unit) ?? d.unit
-        adapterConfig = try c.decodeIfPresent(FanConfig.self, forKey: .adapterConfig) ?? d.adapterConfig
-        batteryConfig = try c.decodeIfPresent(FanConfig.self, forKey: .batteryConfig) ?? d.batteryConfig
-        separateBatteryConfig = try c.decodeIfPresent(Bool.self, forKey: .separateBatteryConfig) ?? d.separateBatteryConfig
         menuBar = try c.decodeIfPresent(MenuBarSettings.self, forKey: .menuBar) ?? d.menuBar
+        popover = try c.decodeIfPresent(PopoverSettings.self, forKey: .popover) ?? d.popover
         alerts = try c.decodeIfPresent([AlertRule].self, forKey: .alerts) ?? d.alerts
         alertCooldownMinutes = try c.decodeIfPresent(Double.self, forKey: .alertCooldownMinutes) ?? d.alertCooldownMinutes
         alertSound = try c.decodeIfPresent(Bool.self, forKey: .alertSound) ?? d.alertSound
         logging = try c.decodeIfPresent(LoggingSettings.self, forKey: .logging) ?? d.logging
         historyMinutes = try c.decodeIfPresent(Int.self, forKey: .historyMinutes) ?? d.historyMinutes
         showAllSensors = try c.decodeIfPresent(Bool.self, forKey: .showAllSensors) ?? d.showAllSensors
+        repairProfileReferences()
     }
 
-    func fanConfig(onBattery: Bool) -> FanConfig {
-        separateBatteryConfig && onBattery ? batteryConfig : adapterConfig
+    /// ID of the profile assigned to the power source, ignoring any manual override.
+    func automaticProfileID(onBattery: Bool) -> UUID {
+        onBattery ? batteryProfileID : adapterProfileID
+    }
+
+    func activeProfileID(onBattery: Bool) -> UUID {
+        overrideProfileID ?? automaticProfileID(onBattery: onBattery)
+    }
+
+    func activeProfile(onBattery: Bool) -> FanProfile {
+        let id = activeProfileID(onBattery: onBattery)
+        return profiles.first { $0.id == id } ?? profiles[0]
+    }
+
+    func index(of profileID: UUID) -> Int? {
+        profiles.firstIndex { $0.id == profileID }
+    }
+
+    /// Points dangling assignments (after a delete) back at the first profile.
+    mutating func repairProfileReferences() {
+        let ids = Set(profiles.map(\.id))
+        if !ids.contains(adapterProfileID) { adapterProfileID = profiles[0].id }
+        if !ids.contains(batteryProfileID) { batteryProfileID = profiles[0].id }
+        if let override = overrideProfileID, !ids.contains(override) { overrideProfileID = nil }
     }
 }
 

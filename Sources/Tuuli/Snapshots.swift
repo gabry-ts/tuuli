@@ -15,26 +15,39 @@ enum Snapshots {
 
         var settings = Settings()
         settings.showAllSensors = true
-        settings.adapterConfig.mode = .curve
+        settings.profiles[0].config.mode = .curve
+        settings.profiles.append(FanProfile(name: "Quiet Work", config: {
+            var config = FanConfig()
+            config.mode = .curve
+            config.curve = [CurvePoint(temperature: 60, percent: 0), CurvePoint(temperature: 85, percent: 60)]
+            return config
+        }()))
+        settings.profiles.append(FanProfile(name: "Rendering", config: {
+            var config = FanConfig()
+            config.mode = .manual
+            config.manualPercent = 80
+            return config
+        }()))
         let store = SettingsStore(settings: settings)
         let monitor = mockMonitor()
         let helper = HelperClient()
         let engine = FanEngine()
 
-        func both(_ name: String, pane: SettingsView.Pane) {
+        func both(_ name: String, title: String, selection: SettingsView.SidebarItem) {
             for dark in [false, true] {
-                let view = SettingsView(initialSelection: pane)
+                let view = SettingsView(initialSelection: selection)
                     .environment(store)
                     .environment(monitor)
                     .environment(engine)
                     .environment(helper)
-                snap(view, name: "\(name)-\(dark ? "dark" : "light")", title: pane.title, dark: dark, dir: dir)
+                snap(view, name: "\(name)-\(dark ? "dark" : "light")", title: title, dark: dark, dir: dir)
             }
         }
 
-        both("overview", pane: .overview)
-        both("fans", pane: .fans)
-        both("sensors", pane: .sensors)
+        both("overview", title: "Overview", selection: .pane(.overview))
+        both("profile", title: settings.profiles[0].name, selection: .profile(settings.profiles[0].id))
+        both("sensors", title: "Sensors", selection: .pane(.sensors))
+        both("menu-bar", title: "Menu Bar", selection: .pane(.menuBar))
 
         print("Snapshots written to \(dir.path)")
         return 0
