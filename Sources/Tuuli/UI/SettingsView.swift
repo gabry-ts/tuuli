@@ -78,7 +78,7 @@ struct SettingsView: View {
         } detail: {
             detail
         }
-        .frame(minWidth: 760, minHeight: 540)
+        .frame(minWidth: 920, minHeight: 560)
         .alert("Rename Mode", isPresented: renameBinding) {
             TextField("Name", text: $renameText)
             Button("Cancel", role: .cancel) {}

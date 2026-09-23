@@ -101,8 +101,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let window = NSWindow(contentViewController: controller)
         window.title = "Tuuli"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setContentSize(NSSize(width: 860, height: 620))
-        window.minSize = NSSize(width: 760, height: 540)
+        window.setContentSize(NSSize(width: 1040, height: 680))
+        window.minSize = NSSize(width: 920, height: 560)
         window.center()
         window.isReleasedWhenClosed = false
         settingsWindow = window

@@ -10,6 +10,7 @@ struct MenuBarLabel: View {
     var body: some View {
         if let image = rendered {
             Image(nsImage: image)
+                .renderingMode(.template)
         } else {
             Image(systemName: "fan.fill")
         }
