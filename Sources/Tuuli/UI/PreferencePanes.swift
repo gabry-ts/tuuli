@@ -39,6 +39,8 @@ struct AlertsView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(AirBackground())
     }
 }
 
@@ -71,6 +73,8 @@ struct LoggingView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(AirBackground())
     }
 
     private func chooseFolder() {
@@ -144,6 +148,8 @@ struct GeneralView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(AirBackground())
         .onAppear { helper.refresh() }
     }
 

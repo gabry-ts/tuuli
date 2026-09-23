@@ -16,6 +16,7 @@ struct MenuBarSettingsView: View {
             Form {
                 Section {
                     statusStrip
+                    Toggle("Spin the icon while the fans run", isOn: store.binding(\.menuBar.spinsIcon))
                 } header: {
                     Text("Status Item")
                 } footer: {
@@ -33,10 +34,12 @@ struct MenuBarSettingsView: View {
                 }
             }
             .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
 
             MenuBarPreview()
                 .frame(width: 320)
         }
+        .background(AirBackground())
     }
 
     // MARK: Status item
@@ -351,7 +354,7 @@ private struct MenuBarPreview: View {
             .frame(height: 28)
             .background(.bar, in: .rect(cornerRadius: 8))
             MenuContent(openSettings: {}, applyNow: {})
-                .background(.regularMaterial, in: .rect(cornerRadius: 12))
+                .clipShape(.rect(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.separator))
                 .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
                 .allowsHitTesting(false)
