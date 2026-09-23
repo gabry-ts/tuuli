@@ -41,11 +41,11 @@ struct OverviewView: View {
 
     private var statusLine: String {
         let source = monitor.isOnBattery ? "Battery" : "Power Adapter"
-        let profile = store.settings.activeProfile(onBattery: monitor.isOnBattery)
+        let mode = store.settings.activeMode
         if let target = engine.targetPercent {
-            return "\(source) · \(profile.name) · holding \(Int(target.rounded()))%"
+            return "\(source) · \(mode.name) · holding \(Int(target.rounded()))%"
         }
-        return "\(source) · \(profile.name) · system controls the fans"
+        return "\(source) · \(mode.name) · system controls the fans"
     }
 
     private func tile(_ title: String, _ value: String) -> some View {

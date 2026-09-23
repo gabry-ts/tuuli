@@ -15,26 +15,28 @@ struct MenuBarLabel: View {
         }
     }
 
+    private var fanSpeed: String {
+        guard let rpm = monitor.fans.map(\.current).max() else { return "– rpm" }
+        return "\(Int(rpm.rounded())) rpm"
+    }
+
     private var rendered: NSImage? {
-        let menuBar = store.settings.menuBar
         let unit = store.settings.unit
-        var readings: [String] = []
-        for sensor in [menuBar.primarySensor, menuBar.secondarySensor].compactMap({ $0 }) {
-            readings.append(unit.short(monitor.value(sensor)))
-        }
-        if menuBar.showFanSpeed, let fan = monitor.fans.map(\.current).max() {
-            readings.append("\(Int(fan.rounded())) rpm")
-        }
-        let showIcon = menuBar.showIcon || readings.isEmpty
+        let items: [StatusElement] = store.settings.menuBar.items.isEmpty ? [.icon] : store.settings.menuBar.items
 
         let content = HStack(spacing: 4) {
-            if showIcon {
-                Image(systemName: "fan.fill")
-                    .font(.system(size: 13, weight: .medium))
-            }
-            ForEach(Array(readings.enumerated()), id: \.offset) { _, text in
-                Text(text)
-                    .font(.system(size: 13, weight: .medium).monospacedDigit())
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                switch item {
+                case .icon:
+                    Image(systemName: "fan.fill")
+                        .font(.system(size: 13, weight: .medium))
+                case .temperature(let sensor):
+                    Text(unit.short(monitor.value(sensor)))
+                        .font(.system(size: 13, weight: .medium).monospacedDigit())
+                case .fanSpeed:
+                    Text(fanSpeed)
+                        .font(.system(size: 13, weight: .medium).monospacedDigit())
+                }
             }
         }
         .foregroundStyle(.black)

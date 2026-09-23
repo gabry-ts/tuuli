@@ -39,7 +39,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger = CSVLogger()
     private var settingsWindow: NSWindow?
     private var observedPollInterval: Double = 0
-    private var lastOnBattery: Bool?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let isFirstLaunch = !SettingsStore.hasSavedSettings
@@ -70,11 +69,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func tick() {
-        // A hand-picked profile lasts until the power source changes.
-        if let lastOnBattery, lastOnBattery != monitor.isOnBattery {
-            store.settings.overrideProfileID = nil
-        }
-        lastOnBattery = monitor.isOnBattery
         let settings = store.settings
         if settings.pollInterval != observedPollInterval {
             observedPollInterval = settings.pollInterval

@@ -15,19 +15,13 @@ enum Snapshots {
 
         var settings = Settings()
         settings.showAllSensors = true
-        settings.profiles[0].config.mode = .curve
-        settings.profiles.append(FanProfile(name: "Quiet Work", config: {
+        settings.activeModeID = settings.modes[2].id
+        settings.modes.append(Mode(name: "Quiet Work", kind: .curve, adapter: {
             var config = FanConfig()
-            config.mode = .curve
             config.curve = [CurvePoint(temperature: 60, percent: 0), CurvePoint(temperature: 85, percent: 60)]
             return config
         }()))
-        settings.profiles.append(FanProfile(name: "Rendering", config: {
-            var config = FanConfig()
-            config.mode = .manual
-            config.manualPercent = 80
-            return config
-        }()))
+        settings.menuBar.items = [.icon, .temperature(Aggregate.cpuHottest.sensorID), .fanSpeed]
         let store = SettingsStore(settings: settings)
         let monitor = mockMonitor()
         let helper = HelperClient()
@@ -45,7 +39,7 @@ enum Snapshots {
         }
 
         both("overview", title: "Overview", selection: .pane(.overview))
-        both("profile", title: settings.profiles[0].name, selection: .profile(settings.profiles[0].id))
+        both("mode", title: settings.modes[1].name, selection: .mode(settings.modes[1].id))
         both("sensors", title: "Sensors", selection: .pane(.sensors))
         both("menu-bar", title: "Menu Bar", selection: .pane(.menuBar))
 

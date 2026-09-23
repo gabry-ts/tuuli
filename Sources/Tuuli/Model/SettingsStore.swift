@@ -58,44 +58,43 @@ final class SettingsStore {
     }
 }
 
-// MARK: Profiles
+// MARK: Modes
 
 extension SettingsStore {
     @discardableResult
-    func addProfile() -> UUID {
-        let profile = FanProfile(name: uniqueName("New Profile"), config: FanConfig())
-        settings.profiles.append(profile)
-        return profile.id
+    func addMode() -> UUID {
+        let mode = Mode(name: uniqueName("New Mode"), kind: .curve)
+        settings.modes.append(mode)
+        return mode.id
     }
 
+    /// Copies any mode, built-in or not, into a new custom mode.
     @discardableResult
-    func duplicateProfile(_ id: UUID) -> UUID? {
-        guard let source = settings.profiles.first(where: { $0.id == id }) else { return nil }
-        let copy = FanProfile(name: uniqueName("\(source.name) Copy"), config: source.config)
-        settings.profiles.append(copy)
+    func duplicateMode(_ id: UUID) -> UUID? {
+        guard var copy = settings.modes.first(where: { $0.id == id }) else { return nil }
+        copy.id = UUID()
+        copy.name = uniqueName("\(copy.name) Copy")
+        copy.isBuiltIn = false
+        settings.modes.append(copy)
         return copy.id
     }
 
-    func renameProfile(_ id: UUID, to name: String) {
+    func renameMode(_ id: UUID, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, let index = settings.index(of: id) else { return }
-        settings.profiles[index].name = trimmed
+        settings.modes[index].name = trimmed
     }
 
-    func deleteProfile(_ id: UUID) {
-        guard settings.profiles.count > 1 else { return }
-        settings.profiles.removeAll { $0.id == id }
-        settings.repairProfileReferences()
-    }
-
-    /// Picks a profile by hand. Choosing the profile already assigned to the current
-    /// power source simply returns to automatic switching.
-    func chooseProfile(_ id: UUID, onBattery: Bool) {
-        settings.overrideProfileID = id == settings.automaticProfileID(onBattery: onBattery) ? nil : id
+    func deleteMode(_ id: UUID) {
+        guard settings.modes.first(where: { $0.id == id })?.isBuiltIn == false else { return }
+        settings.modes.removeAll { $0.id == id }
+        if settings.activeModeID == id {
+            settings.activeModeID = settings.modes[0].id
+        }
     }
 
     private func uniqueName(_ base: String) -> String {
-        let names = Set(settings.profiles.map(\.name))
+        let names = Set(settings.modes.map(\.name))
         guard names.contains(base) else { return base }
         var n = 2
         while names.contains("\(base) \(n)") { n += 1 }

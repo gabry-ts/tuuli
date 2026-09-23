@@ -2,68 +2,74 @@ import Charts
 import SwiftUI
 import TuuliCore
 
-struct ProfileEditorView: View {
+struct ModeEditorView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(Monitor.self) private var monitor
     @Environment(HelperClient.self) private var helper
-    let profileID: UUID
+    let modeID: UUID
+    @State private var editingBattery = false
+
+    private var mode: Mode {
+        store.settings.modes.first { $0.id == modeID } ?? store.settings.modes[0]
+    }
 
     var body: some View {
         Form {
-            if !helper.isReady {
+            if !helper.isReady, mode.kind != .system {
                 Section {
                     Label("Fan control needs the helper. Install it from General.", systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange)
                 }
             }
             Section {
-                TextField("Name", text: nameBinding)
-                assignmentToggle("Use on power adapter", keyPath: \.adapterProfileID)
-                if PowerSource.hasBattery {
-                    assignmentToggle("Use on battery", keyPath: \.batteryProfileID)
+                TextField("Name", text: binding(\.name))
+                if !mode.isBuiltIn {
+                    Picker("Type", selection: binding(\.kind)) {
+                        ForEach(FanMode.allCases, id: \.self) { kind in
+                            Text(kind.title).tag(kind)
+                        }
+                    }
+                    .pickerStyle(.segmented)
                 }
+                Toggle("Active", isOn: Binding(
+                    get: { store.settings.activeModeID == modeID },
+                    set: { if $0 { store.settings.activeModeID = modeID } }
+                ))
+                .disabled(store.settings.activeModeID == modeID)
             } footer: {
-                Text(activeFooter)
+                Text(mode.kind.summary)
                     .foregroundStyle(.secondary)
             }
 
-            FanConfigEditor(config: configBinding)
+            if mode.hasBatterySettings, PowerSource.hasBattery {
+                Section {
+                    Toggle("Same settings on battery", isOn: binding(\.sameOnBattery))
+                    if !mode.sameOnBattery {
+                        Picker("Editing", selection: $editingBattery) {
+                            Text("Power Adapter").tag(false)
+                            Text("Battery").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                } footer: {
+                    Text("Now on \(monitor.isOnBattery ? "battery" : "power adapter").")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            FanConfigEditor(kind: mode.kind, config: binding(
+                mode.hasBatterySettings && !mode.sameOnBattery && editingBattery ? \.battery : \.adapter
+            ))
         }
         .formStyle(.grouped)
     }
 
-    private var activeFooter: String {
-        let isActive = store.settings.activeProfileID(onBattery: monitor.isOnBattery) == profileID
-        return isActive ? "Active now." : "Not active. Pick it from the menu bar to use it now."
-    }
-
-    /// On-only toggle: a power source always has exactly one profile, so it is
-    /// reassigned by turning it on in another profile.
-    private func assignmentToggle(_ title: String, keyPath: WritableKeyPath<Settings, UUID>) -> some View {
-        Toggle(title, isOn: Binding(
-            get: { store.settings[keyPath: keyPath] == profileID },
-            set: { if $0 { store.settings[keyPath: keyPath] = profileID } }
-        ))
-        .disabled(store.settings[keyPath: keyPath] == profileID)
-    }
-
-    private var nameBinding: Binding<String> {
+    private func binding<T>(_ keyPath: WritableKeyPath<Mode, T>) -> Binding<T> {
         Binding(
-            get: { store.settings.profiles.first { $0.id == profileID }?.name ?? "" },
-            set: { name in
-                if let index = store.settings.index(of: profileID), !name.isEmpty {
-                    store.settings.profiles[index].name = name
-                }
-            }
-        )
-    }
-
-    private var configBinding: Binding<FanConfig> {
-        Binding(
-            get: { store.settings.profiles.first { $0.id == profileID }?.config ?? FanConfig() },
-            set: { config in
-                if let index = store.settings.index(of: profileID) {
-                    store.settings.profiles[index].config = config
+            get: { mode[keyPath: keyPath] },
+            set: { value in
+                if let index = store.settings.index(of: modeID) {
+                    store.settings.modes[index][keyPath: keyPath] = value
                 }
             }
         )
@@ -73,22 +79,11 @@ struct ProfileEditorView: View {
 struct FanConfigEditor: View {
     @Environment(SettingsStore.self) private var store
     @Environment(Monitor.self) private var monitor
+    let kind: FanMode
     @Binding var config: FanConfig
 
     var body: some View {
-        Section {
-            Picker("Mode", selection: $config.mode) {
-                ForEach(FanMode.allCases, id: \.self) { mode in
-                    Text(mode.title).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-        } footer: {
-            Text(modeDescription)
-                .foregroundStyle(.secondary)
-        }
-
-        switch config.mode {
+        switch kind {
         case .system:
             EmptyView()
         case .manual:
@@ -107,15 +102,6 @@ struct FanConfigEditor: View {
                 CurveEditor(points: $config.curve, current: monitor.value(config.curveSensor))
             }
             rampSection(showsHysteresis: false)
-        }
-    }
-
-    private var modeDescription: String {
-        switch config.mode {
-        case .system: "macOS controls the fans. Tuuli only monitors."
-        case .boost: "Fans stay under system control until a rule's sensor reaches its threshold, then run at that rule's speed. The fastest active rule wins."
-        case .curve: "Fan speed follows the sensor along the curve. At 0% the system takes over, so fans can still idle."
-        case .manual: "Fans run at a fixed speed, whatever the temperature."
         }
     }
 
@@ -211,6 +197,17 @@ struct CurveEditor: View {
             points.append(CurvePoint(temperature: min((last?.temperature ?? 60) + 5, 110), percent: last?.percent ?? 50))
         } label: {
             Label("Add Point", systemImage: "plus")
+        }
+    }
+}
+
+extension FanMode {
+    var summary: String {
+        switch self {
+        case .system: "macOS controls the fans. Tuuli only monitors."
+        case .boost: "Fans stay under system control until a rule's sensor reaches its threshold, then run at that rule's speed. The fastest active rule wins."
+        case .curve: "Fan speed follows the sensor along the curve. At 0% the system takes over, so fans can still idle."
+        case .manual: "Fans run at a fixed speed, whatever the temperature."
         }
     }
 }

@@ -15,34 +15,8 @@ struct MenuContent: View {
     var body: some View {
         let popover = store.settings.popover
         VStack(alignment: .leading, spacing: 12) {
-            if popover.showTemperatures, !popover.temperatureSensors.isEmpty {
-                section("Temperatures") {
-                    ForEach(Array(popover.temperatureSensors.enumerated()), id: \.offset) { _, sensor in
-                        row(monitor.name(of: sensor), store.settings.unit.format(monitor.value(sensor)))
-                    }
-                }
-                Divider()
-            }
-            if popover.showChart {
-                section(monitor.name(of: popover.chartSensor)) {
-                    sparkline(sensor: popover.chartSensor, minutes: popover.chartMinutes)
-                }
-                Divider()
-            }
-            if popover.showFans {
-                section("Fans") {
-                    if monitor.fans.isEmpty {
-                        Text("No fans detected").foregroundStyle(.secondary)
-                    }
-                    ForEach(monitor.fans) { fan in
-                        row(fan.name, fan.current > 0 ? "\(Int(fan.current.rounded())) rpm" : "Off")
-                    }
-                }
-                Divider()
-            }
-            if popover.showProfilePicker {
-                profileSection
-                Divider()
+            ForEach(popover.sections.filter(\.isEnabled), id: \.section) { entry in
+                sectionView(entry.section, popover: popover)
             }
             HStack {
                 Button("Settings…", action: openSettings)
@@ -56,36 +30,64 @@ struct MenuContent: View {
         .frame(width: 290)
     }
 
-    // MARK: Profile
-
-    private var onBattery: Bool { monitor.isOnBattery }
-
-    private var activeProfile: FanProfile {
-        store.settings.activeProfile(onBattery: onBattery)
+    @ViewBuilder
+    private func sectionView(_ section: PopoverSection, popover: PopoverSettings) -> some View {
+        switch section {
+        case .temperatures:
+            if !popover.temperatureSensors.isEmpty {
+                self.section("Temperatures") {
+                    ForEach(Array(popover.temperatureSensors.enumerated()), id: \.offset) { _, sensor in
+                        row(monitor.name(of: sensor), store.settings.unit.format(monitor.value(sensor)))
+                    }
+                }
+                Divider()
+            }
+        case .chart:
+            self.section(monitor.name(of: popover.chartSensor)) {
+                sparkline(sensor: popover.chartSensor, minutes: popover.chartMinutes)
+            }
+            Divider()
+        case .fans:
+            self.section("Fans") {
+                if monitor.fans.isEmpty {
+                    Text("No fans detected").foregroundStyle(.secondary)
+                }
+                ForEach(monitor.fans) { fan in
+                    row(fan.name, fan.current > 0 ? "\(Int(fan.current.rounded())) rpm" : "Off")
+                }
+            }
+            Divider()
+        case .modePicker:
+            modeSection
+            Divider()
+        }
     }
 
+    // MARK: Mode
+
+    private var activeMode: Mode { store.settings.activeMode }
+
     @ViewBuilder
-    private var profileSection: some View {
-        section("Profile") {
-            Picker("Profile", selection: Binding(
-                get: { activeProfile.id },
-                set: { store.chooseProfile($0, onBattery: onBattery); applyNow() }
-            )) {
-                ForEach(store.settings.profiles) { profile in
-                    Text(profile.name).tag(profile.id)
+    private var modeSection: some View {
+        @Bindable var store = store
+        section("Mode") {
+            Picker("Mode", selection: $store.settings.activeModeID) {
+                ForEach(store.settings.modes) { mode in
+                    Label(mode.name, systemImage: mode.kind.icon).tag(mode.id)
                 }
             }
             .labelsHidden()
             .disabled(!helper.isReady)
+            .onChange(of: store.settings.activeModeID) { applyNow() }
 
-            if activeProfile.config.mode == .manual {
+            if activeMode.kind == .manual {
                 HStack {
                     Image(systemName: "fan")
                         .foregroundStyle(.secondary)
                     Slider(value: manualPercent, in: 0...100, step: 5) { editing in
                         if !editing { applyNow() }
                     }
-                    Text("\(Int(activeProfile.config.manualPercent))%")
+                    Text("\(Int(activeMode.adapter.manualPercent))%")
                         .monospacedDigit()
                         .frame(width: 40, alignment: .trailing)
                 }
@@ -94,32 +96,22 @@ struct MenuContent: View {
 
             if !helper.isReady {
                 caption("Install the helper in Settings to control fans.")
-            } else if store.settings.overrideProfileID != nil {
-                HStack {
-                    caption("Picked by hand until the power source changes.")
-                    Spacer()
-                    Button("Auto") {
-                        store.settings.overrideProfileID = nil
-                        applyNow()
-                    }
-                    .controlSize(.small)
-                }
             } else {
-                caption("Automatic · \(onBattery ? "Battery" : "Power Adapter")\(holdingText)")
+                caption("\(monitor.isOnBattery ? "Battery" : "Power Adapter")\(holdingText)")
             }
         }
     }
 
     private var holdingText: String {
-        engine.targetPercent.map { " · \(Int($0.rounded()))%" } ?? ""
+        engine.targetPercent.map { " · holding \(Int($0.rounded()))%" } ?? " · system controls the fans"
     }
 
     private var manualPercent: Binding<Double> {
         Binding(
-            get: { activeProfile.config.manualPercent },
+            get: { activeMode.adapter.manualPercent },
             set: { value in
-                if let index = store.settings.index(of: activeProfile.id) {
-                    store.settings.profiles[index].config.manualPercent = value
+                if let index = store.settings.index(of: activeMode.id) {
+                    store.settings.modes[index].adapter.manualPercent = value
                 }
             }
         )

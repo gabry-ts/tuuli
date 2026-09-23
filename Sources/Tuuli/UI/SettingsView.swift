@@ -4,7 +4,7 @@ import TuuliCore
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var store
     @State private var selection: SidebarItem?
-    @State private var renamingProfileID: UUID?
+    @State private var renamingModeID: UUID?
     @State private var renameText = ""
 
     enum Pane: String, CaseIterable, Hashable {
@@ -40,7 +40,7 @@ struct SettingsView: View {
 
     enum SidebarItem: Hashable {
         case pane(Pane)
-        case profile(UUID)
+        case mode(UUID)
     }
 
     init(initialSelection: SidebarItem = .pane(.overview)) {
@@ -54,15 +54,15 @@ struct SettingsView: View {
                     paneRow(.overview)
                     paneRow(.sensors)
                 }
-                Section("Profiles") {
-                    ForEach(store.settings.profiles) { profile in
-                        profileRow(profile)
-                            .tag(SidebarItem.profile(profile.id))
+                Section("Modes") {
+                    ForEach(store.settings.modes) { mode in
+                        modeRow(mode)
+                            .tag(SidebarItem.mode(mode.id))
                     }
                     Button {
-                        selection = .profile(store.addProfile())
+                        selection = .mode(store.addMode())
                     } label: {
-                        Label("Add Profile", systemImage: "plus")
+                        Label("Add Mode", systemImage: "plus")
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
@@ -79,12 +79,12 @@ struct SettingsView: View {
             detail
         }
         .frame(minWidth: 760, minHeight: 540)
-        .alert("Rename Profile", isPresented: renameBinding) {
+        .alert("Rename Mode", isPresented: renameBinding) {
             TextField("Name", text: $renameText)
             Button("Cancel", role: .cancel) {}
             Button("Rename") {
-                if let renamingProfileID {
-                    store.renameProfile(renamingProfileID, to: renameText)
+                if let renamingModeID {
+                    store.renameMode(renamingModeID, to: renameText)
                 }
             }
         }
@@ -95,46 +95,45 @@ struct SettingsView: View {
             .tag(SidebarItem.pane(pane))
     }
 
-    private func profileRow(_ profile: FanProfile) -> some View {
+    private func modeRow(_ mode: Mode) -> some View {
         HStack {
-            Label(profile.name, systemImage: profile.config.mode.icon)
+            Label(mode.name, systemImage: mode.kind.icon)
             Spacer()
-            if profile.id == store.settings.adapterProfileID {
-                Image(systemName: "bolt.fill")
+            if mode.id == store.settings.activeModeID {
+                Image(systemName: "checkmark")
                     .foregroundStyle(.secondary)
-                    .help("Used on power adapter")
-            }
-            if PowerSource.hasBattery, profile.id == store.settings.batteryProfileID {
-                Image(systemName: "battery.75percent")
-                    .foregroundStyle(.secondary)
-                    .help("Used on battery")
+                    .help("Active mode")
             }
         }
         .contextMenu {
+            Button("Use This Mode") { store.settings.activeModeID = mode.id }
+                .disabled(mode.id == store.settings.activeModeID)
+            Divider()
             Button("Rename…") {
-                renameText = profile.name
-                renamingProfileID = profile.id
+                renameText = mode.name
+                renamingModeID = mode.id
             }
             Button("Duplicate") {
-                if let id = store.duplicateProfile(profile.id) {
-                    selection = .profile(id)
+                if let id = store.duplicateMode(mode.id) {
+                    selection = .mode(id)
                 }
             }
-            Divider()
-            Button("Delete", role: .destructive) {
-                if selection == .profile(profile.id) {
-                    selection = .pane(.overview)
+            if !mode.isBuiltIn {
+                Divider()
+                Button("Delete", role: .destructive) {
+                    if selection == .mode(mode.id) {
+                        selection = .pane(.overview)
+                    }
+                    store.deleteMode(mode.id)
                 }
-                store.deleteProfile(profile.id)
             }
-            .disabled(store.settings.profiles.count <= 1)
         }
     }
 
     private var renameBinding: Binding<Bool> {
         Binding(
-            get: { renamingProfileID != nil },
-            set: { if !$0 { renamingProfileID = nil } }
+            get: { renamingModeID != nil },
+            set: { if !$0 { renamingModeID = nil } }
         )
     }
 
@@ -144,13 +143,13 @@ struct SettingsView: View {
         case .pane(let pane):
             paneView(pane)
                 .navigationTitle(pane.title)
-        case .profile(let id):
-            if let profile = store.settings.profiles.first(where: { $0.id == id }) {
-                ProfileEditorView(profileID: id)
+        case .mode(let id):
+            if let mode = store.settings.modes.first(where: { $0.id == id }) {
+                ModeEditorView(modeID: id)
                     .id(id)
-                    .navigationTitle(profile.name)
+                    .navigationTitle(mode.name)
             } else {
-                ContentUnavailableView("No Profile Selected", systemImage: "fan")
+                ContentUnavailableView("No Mode Selected", systemImage: "fan")
             }
         case nil:
             ContentUnavailableView("Select a Section", systemImage: "sidebar.left")

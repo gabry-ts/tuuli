@@ -50,75 +50,90 @@ struct MenuBarSettingsView: View {
         @Bindable var store = store
         Form {
             Section {
-                Toggle("Show icon", isOn: $store.settings.menuBar.showIcon)
-                SensorPicker(title: "First temperature", optionalSelection: $store.settings.menuBar.primarySensor)
-                SensorPicker(title: "Second temperature", optionalSelection: $store.settings.menuBar.secondarySensor)
-                Toggle("Show fan speed", isOn: $store.settings.menuBar.showFanSpeed)
+                statusItems
+                HStack {
+                    Button("Add Temperature") {
+                        store.settings.menuBar.items.append(.temperature(Aggregate.cpuHottest.sensorID))
+                    }
+                    if !store.settings.menuBar.items.contains(.icon) {
+                        Button("Add Icon") { store.settings.menuBar.items.append(.icon) }
+                    }
+                    if !store.settings.menuBar.items.contains(.fanSpeed) {
+                        Button("Add Fan Speed") { store.settings.menuBar.items.append(.fanSpeed) }
+                    }
+                }
             } header: {
                 Text("Status Item")
             } footer: {
-                Text("With nothing else selected, the icon is always shown.")
+                Text("Shown left to right. With nothing in the list, the icon is shown.")
                     .foregroundStyle(.secondary)
             }
 
             Section {
-                Toggle("Temperatures", isOn: $store.settings.popover.showTemperatures)
-                if store.settings.popover.showTemperatures {
-                    temperatureList
+                ForEach(Array(store.settings.popover.sections.enumerated()), id: \.element.section) { index, entry in
+                    HStack {
+                        Toggle(entry.section.title, isOn: $store.settings.popover.sections[index].isEnabled)
+                        Spacer()
+                        ReorderButtons(items: $store.settings.popover.sections, index: index)
+                    }
                 }
             } header: {
                 Text("Popover")
+            } footer: {
+                Text("Shown top to bottom. The mode picker adds a speed slider when the active mode is manual.")
+                    .foregroundStyle(.secondary)
             }
 
-            Section {
-                Toggle("Chart", isOn: $store.settings.popover.showChart)
-                if store.settings.popover.showChart {
-                    SensorPicker(title: "Sensor", selection: $store.settings.popover.chartSensor)
-                    Picker("Window", selection: $store.settings.popover.chartMinutes) {
-                        Text("5 min").tag(5)
-                        Text("15 min").tag(15)
-                        Text("60 min").tag(60)
-                    }
+            Section("Popover Temperatures") {
+                temperatureList
+            }
+
+            Section("Popover Chart") {
+                SensorPicker(title: "Sensor", selection: $store.settings.popover.chartSensor)
+                Picker("Window", selection: $store.settings.popover.chartMinutes) {
+                    Text("5 min").tag(5)
+                    Text("15 min").tag(15)
+                    Text("60 min").tag(60)
                 }
-                Toggle("Fan speeds", isOn: $store.settings.popover.showFans)
-                Toggle("Profile picker", isOn: $store.settings.popover.showProfilePicker)
-            } footer: {
-                Text("The profile picker also shows a speed slider when the active profile is manual.")
-                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
     }
 
     @ViewBuilder
+    private var statusItems: some View {
+        @Bindable var store = store
+        ForEach(Array(store.settings.menuBar.items.enumerated()), id: \.offset) { index, item in
+            HStack {
+                switch item {
+                case .icon:
+                    Label("Icon", systemImage: "fan.fill")
+                case .fanSpeed:
+                    Label("Fan speed", systemImage: "gauge.with.dots.needle.33percent")
+                case .temperature(let sensor):
+                    SensorPicker(title: "Temperature", selection: Binding(
+                        get: { sensor },
+                        set: { store.settings.menuBar.items[index] = .temperature($0) }
+                    ))
+                    .fixedSize()
+                }
+                Spacer()
+                ReorderButtons(items: $store.settings.menuBar.items, index: index, removable: true)
+            }
+        }
+    }
+
+    @ViewBuilder
     private var temperatureList: some View {
         @Bindable var store = store
-        let sensors = store.settings.popover.temperatureSensors
-        ForEach(Array(sensors.enumerated()), id: \.offset) { index, _ in
+        ForEach(Array(store.settings.popover.temperatureSensors.enumerated()), id: \.offset) { index, _ in
             HStack {
                 SensorPicker(title: "", selection: $store.settings.popover.temperatureSensors[index])
                     .labelsHidden()
                     .fixedSize()
                 Spacer()
-                Button {
-                    store.settings.popover.temperatureSensors.swapAt(index, index - 1)
-                } label: {
-                    Image(systemName: "chevron.up")
-                }
-                .disabled(index == 0)
-                Button {
-                    store.settings.popover.temperatureSensors.swapAt(index, index + 1)
-                } label: {
-                    Image(systemName: "chevron.down")
-                }
-                .disabled(index == sensors.count - 1)
-                Button(role: .destructive) {
-                    store.settings.popover.temperatureSensors.remove(at: index)
-                } label: {
-                    Image(systemName: "minus.circle")
-                }
+                ReorderButtons(items: $store.settings.popover.temperatureSensors, index: index, removable: true)
             }
-            .buttonStyle(.borderless)
         }
         HStack {
             SensorPicker(title: "Add", selection: $newSensor)
@@ -126,6 +141,38 @@ struct MenuBarSettingsView: View {
                 store.settings.popover.temperatureSensors.append(newSensor)
             }
         }
+    }
+}
+
+/// Move up, move down and optionally remove, for rows of an ordered list.
+struct ReorderButtons<Element>: View {
+    @Binding var items: [Element]
+    let index: Int
+    var removable = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button {
+                items.swapAt(index, index - 1)
+            } label: {
+                Image(systemName: "chevron.up")
+            }
+            .disabled(index == 0)
+            Button {
+                items.swapAt(index, index + 1)
+            } label: {
+                Image(systemName: "chevron.down")
+            }
+            .disabled(index == items.count - 1)
+            if removable {
+                Button(role: .destructive) {
+                    items.remove(at: index)
+                } label: {
+                    Image(systemName: "minus.circle")
+                }
+            }
+        }
+        .buttonStyle(.borderless)
     }
 }
 
@@ -207,26 +254,6 @@ struct GeneralView: View {
                 Text("Fan Control Helper")
             } footer: {
                 Text("Writing fan speeds needs root. The helper is a small background service that only sets fan speeds, and hands the fans back to macOS if Tuuli quits, crashes or the Mac sleeps.")
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
-                Picker("On power adapter", selection: $store.settings.adapterProfileID) {
-                    ForEach(store.settings.profiles) { profile in
-                        Text(profile.name).tag(profile.id)
-                    }
-                }
-                if PowerSource.hasBattery {
-                    Picker("On battery", selection: $store.settings.batteryProfileID) {
-                        ForEach(store.settings.profiles) { profile in
-                            Text(profile.name).tag(profile.id)
-                        }
-                    }
-                }
-            } header: {
-                Text("Automatic Profiles")
-            } footer: {
-                Text("A profile picked from the menu bar stays active until the power source changes.")
                     .foregroundStyle(.secondary)
             }
 
