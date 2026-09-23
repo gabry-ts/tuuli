@@ -25,14 +25,15 @@
 ## Features
 
 - **Sensors**: discovered at runtime from the SMC and grouped into CPU performance, CPU efficiency, GPU, SSD, battery, wireless, ambient and surface. Summary values (hottest sensor, CPU hottest, CPU average, GPU, SSD, battery) work the same on every Apple Silicon Mac.
-- **Fan modes**:
+- **Fan modes**, picked from the menu bar or the settings sidebar:
   - **System**: macOS stays in control, Tuuli only monitors.
   - **Auto Boost**: rules like "when CPU Hottest reaches 65 °C, run fans at 100%". The fastest active rule wins, with a configurable ramp time and release hysteresis.
-  - **Custom Curve**: a temperature-to-speed curve on any sensor. 0% hands control back to macOS so fans can still idle.
-  - **Manual**: a fixed speed.
-- **Profiles**: create, name, duplicate and delete as many fan profiles as you like. Assign one to the power adapter and one to battery for automatic switching, or pick any profile from the menu bar until the power source changes.
-- **Menu bar**: any mix of icon, two temperatures and fan speed in the status item.
-- **Popover**: choose what it shows, from an ordered list of temperatures, a mini chart, fan speeds and the profile picker. A manual profile gets a speed slider right in the popover.
+  - **Curve**: a temperature-to-speed curve on any sensor. 0% hands control back to macOS so fans can still idle.
+  - **Manual**: a fixed speed, adjustable with a slider right in the menu bar popover.
+  - **Custom modes**: create, name and duplicate your own Boost, Curve or Manual modes. The built-in modes can be renamed but not deleted.
+- **Power source**: Boost and Curve modes can use different settings on battery and on the power adapter, switched automatically.
+- **Menu bar**: the status item shows any mix of icon, temperatures and fan speed, in the order you choose.
+- **Popover**: temperatures, a mini chart, fan speeds and the mode picker, each one optional and in the order you choose.
 - **History**: temperature and fan speed charts over the last 5, 15 or 60 minutes.
 - **Alerts**: notifications when a sensor crosses a threshold, with a repeat cooldown.
 - **CSV logging**: every sensor and fan, at a chosen interval, one file per day.
@@ -41,10 +42,10 @@
 ## Screenshots
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/profile-dark.png">
-  <img src="docs/screenshots/profile-light.png" alt="A fan profile with a custom curve" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mode-dark.png">
+  <img src="docs/screenshots/mode-light.png" alt="Auto Boost mode with separate battery settings" width="880">
 </picture>
-<p align="center"><sub>Profiles</sub></p>
+<p align="center"><sub>Modes</sub></p>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/menu-bar-dark.png">
@@ -81,7 +82,7 @@
 
 ## Settings location
 
-- Settings and profiles are stored as JSON at `~/Library/Application Support/Tuuli/settings.json`.
+- Settings and modes are stored as JSON at `~/Library/Application Support/Tuuli/settings.json`.
 - CSV logs go to `~/Documents` by default, as `Tuuli-<date>.csv`.
 
 ## Build from source
