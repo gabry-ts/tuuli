@@ -42,6 +42,14 @@ enum Snapshots {
         both("mode", title: settings.modes[1].name, selection: .mode(settings.modes[1].id))
         both("sensors", title: "Sensors", selection: .pane(.sensors))
         both("menu-bar", title: "Menu Bar", selection: .pane(.menuBar))
+        for dark in [false, true] {
+            let popover = MenuContent(openSettings: {}, applyNow: {})
+                .environment(store)
+                .environment(monitor)
+                .environment(engine)
+                .environment(helper)
+            snapPopover(popover, name: "popover-\(dark ? "dark" : "light")", dark: dark, dir: dir)
+        }
 
         print("Snapshots written to \(dir.path)")
         return 0
@@ -82,6 +90,25 @@ enum Snapshots {
 
     // MARK: Rendering
 
+    /// Renders the menu bar popover on a window background, sized to fit its content.
+    private static func snapPopover(_ view: some View, name: String, dark: Bool, dir: URL) {
+        let controller = NSHostingController(rootView: view.background(.windowBackground))
+        let window = NSWindow(contentViewController: controller)
+        window.styleMask = [.borderless]
+        window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        window.setContentSize(controller.view.fittingSize)
+        window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
+        window.orderFrontRegardless()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.8))
+        if let image = windowImage(window),
+           let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) {
+            try? data.write(to: dir.appendingPathComponent("\(name).png"))
+            print("  \(name).png")
+        }
+        window.orderOut(nil)
+        window.close()
+    }
+
     private static func snap(_ view: some View, name: String, title: String, dark: Bool, dir: URL) {
         let controller = NSHostingController(rootView: view)
         controller.sceneBridgingOptions = [.title, .toolbars]
@@ -90,7 +117,7 @@ enum Snapshots {
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.toolbarStyle = .unified
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        window.setContentSize(NSSize(width: 860, height: 620))
+        window.setContentSize(NSSize(width: 1040, height: 680))
         // Off the visible displays, so nothing flashes on screen; the window server can
         // still composite and capture a window regardless of where it's positioned.
         window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
@@ -101,7 +128,7 @@ enum Snapshots {
         // actual document height so long panes aren't cropped.
         let contentHeight = tallestDocumentHeight(in: controller.view)
         if contentHeight > 0 {
-            window.setContentSize(NSSize(width: 860, height: contentHeight + 40))
+            window.setContentSize(NSSize(width: 1040, height: contentHeight + 40))
         }
         RunLoop.main.run(until: Date().addingTimeInterval(0.4))
 
