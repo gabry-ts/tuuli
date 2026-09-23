@@ -40,6 +40,7 @@ enum StatusElement: Codable, Hashable {
 
 struct MenuBarSettings: Codable, Hashable {
     var items: [StatusElement] = [.icon, .temperature(Aggregate.cpuHottest.sensorID)]
+    var spinsIcon = true
 
     init() {}
 
@@ -49,6 +50,7 @@ struct MenuBarSettings: Codable, Hashable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        spinsIcon = try c.decodeIfPresent(Bool.self, forKey: .spinsIcon) ?? true
         if let items = try c.decodeIfPresent([StatusElement].self, forKey: .items) {
             self.items = items
             return

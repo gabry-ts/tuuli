@@ -6,6 +6,7 @@ import TuuliCore
 struct MenuBarLabel: View {
     let store: SettingsStore
     let monitor: Monitor
+    var spinner: IconSpinner?
 
     var body: some View {
         if let image = rendered {
@@ -31,6 +32,7 @@ struct MenuBarLabel: View {
                 case .icon:
                     Image(systemName: "fan.fill")
                         .font(.system(size: 13, weight: .medium))
+                        .rotationEffect(.degrees(spinner?.angle ?? 0))
                 case .temperature(let sensor):
                     Text(unit.short(monitor.value(sensor)))
                         .font(.system(size: 13, weight: .medium).monospacedDigit())
