@@ -30,8 +30,9 @@
   - **Auto Boost**: rules like "when CPU Hottest reaches 65 °C, run fans at 100%". The fastest active rule wins, with a configurable ramp time and release hysteresis.
   - **Custom Curve**: a temperature-to-speed curve on any sensor. 0% hands control back to macOS so fans can still idle.
   - **Manual**: a fixed speed.
-- **Power source profiles**: separate fan settings on battery and on the power adapter, switched automatically.
-- **Menu bar**: any mix of icon, two temperatures and fan speed.
+- **Profiles**: create, name, duplicate and delete as many fan profiles as you like. Assign one to the power adapter and one to battery for automatic switching, or pick any profile from the menu bar until the power source changes.
+- **Menu bar**: any mix of icon, two temperatures and fan speed in the status item.
+- **Popover**: choose what it shows, from an ordered list of temperatures, a mini chart, fan speeds and the profile picker. A manual profile gets a speed slider right in the popover.
 - **History**: temperature and fan speed charts over the last 5, 15 or 60 minutes.
 - **Alerts**: notifications when a sensor crosses a threshold, with a repeat cooldown.
 - **CSV logging**: every sensor and fan, at a chosen interval, one file per day.
@@ -40,10 +41,16 @@
 ## Screenshots
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/fans-dark.png">
-  <img src="docs/screenshots/fans-light.png" alt="Fan control with a custom curve" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/profile-dark.png">
+  <img src="docs/screenshots/profile-light.png" alt="A fan profile with a custom curve" width="880">
 </picture>
-<p align="center"><sub>Fan control</sub></p>
+<p align="center"><sub>Profiles</sub></p>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/menu-bar-dark.png">
+  <img src="docs/screenshots/menu-bar-light.png" alt="Menu bar and popover settings" width="880">
+</picture>
+<p align="center"><sub>Menu bar and popover</sub></p>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/sensors-dark.png">
@@ -74,7 +81,7 @@
 
 ## Settings location
 
-- Settings are stored as JSON at `~/Library/Application Support/Tuuli/settings.json`.
+- Settings and profiles are stored as JSON at `~/Library/Application Support/Tuuli/settings.json`.
 - CSV logs go to `~/Documents` by default, as `Tuuli-<date>.csv`.
 
 ## Build from source
