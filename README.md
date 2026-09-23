@@ -37,6 +37,8 @@
 - **History**: temperature and fan speed charts over the last 5, 15 or 60 minutes.
 - **Alerts**: notifications when a sensor crosses a threshold, with a repeat cooldown.
 - **CSV logging**: every sensor and fan, at a chosen interval, one file per day.
+- **Design**: an airy, frosted look where color only ever means heat, fans that spin at their real pace, a draggable fan curve, and a short welcome on first launch.
+- **Menu bar icon**: the fan turns while the fans run, faster as they speed up. It can be switched off.
 - **Fail-safe**: the fans go back to macOS when Tuuli quits or crashes, when it stops responding for 10 seconds, when the Mac goes to sleep, and when the helper is stopped.
 
 ## Screenshots
@@ -52,6 +54,19 @@
   <img src="docs/screenshots/menu-bar-light.png" alt="Menu bar and popover settings" width="880">
 </picture>
 <p align="center"><sub>Menu bar and popover</sub></p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/popover-dark.png">
+    <img src="docs/screenshots/popover-light.png" alt="Menu bar popover" width="300">
+  </picture>
+  &nbsp;&nbsp;
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/onboarding-3-dark.png">
+    <img src="docs/screenshots/onboarding-3-light.png" alt="Welcome, picking a starting mode" width="460">
+  </picture>
+</p>
+<p align="center"><sub>Popover and first launch</sub></p>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/sensors-dark.png">
@@ -70,7 +85,7 @@
 2. Tuuli is signed with a local Apple Development identity and not notarized, so Gatekeeper blocks the first launch:
    - Open the app once, then go to **System Settings > Privacy & Security** and click **Open Anyway**.
    - Or remove the quarantine flag from Terminal: `xattr -dr com.apple.quarantine /Applications/Tuuli.app`
-3. Launch Tuuli. The settings window opens on first launch.
+3. Launch Tuuli. A short welcome walks you through the helper and a starting mode.
 4. To control fans, open **General** and click **Install Helper…**, then enter your administrator password.
 
 ## How fan control works
