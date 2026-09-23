@@ -23,7 +23,7 @@ struct TuuliApp: App {
                 .environment(appDelegate.engine)
                 .environment(appDelegate.helper)
         } label: {
-            MenuBarLabel(store: appDelegate.store, monitor: appDelegate.monitor)
+            MenuBarLabel(store: appDelegate.store, monitor: appDelegate.monitor, spinner: appDelegate.spinner)
         }
         .menuBarExtraStyle(.window)
     }
@@ -35,9 +35,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let monitor = Monitor()
     let engine = FanEngine()
     let helper = HelperClient()
+    let spinner = IconSpinner()
     private let notifier = Notifier()
     private let logger = CSVLogger()
     private var settingsWindow: NSWindow?
+    private var onboardingWindow: NSWindow?
     private var observedPollInterval: Double = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -51,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if isFirstLaunch {
             LoginItem.register()
-            openSettingsWindow()
+            openOnboardingWindow()
         }
     }
 
@@ -75,6 +77,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             monitor.schedule(interval: observedPollInterval)
         }
         engine.tick(monitor: monitor, settings: settings, helper: helper)
+        let spinning = settings.menuBar.spinsIcon && settings.menuBar.items.contains(.icon)
+        let fastest = monitor.fans.max { $0.current < $1.current }
+        spinner.update(percent: spinning && (fastest?.current ?? 0) > 0 ? fastest?.percent : nil)
         notifier.check(settings: settings, monitor: monitor)
         logger.log(settings: settings.logging, monitor: monitor)
     }
@@ -82,6 +87,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Re-evaluates the fans immediately after a change from the menu bar.
     func applyFans() {
         engine.tick(monitor: monitor, settings: store.settings, helper: helper)
+    }
+
+    func openOnboardingWindow() {
+        NSApp.activate()
+        let view = OnboardingView { [weak self] in
+            self?.onboardingWindow?.close()
+            self?.onboardingWindow = nil
+        }
+        .environment(store)
+        .environment(helper)
+        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        window.center()
+        window.isReleasedWhenClosed = false
+        onboardingWindow = window
+        window.makeKeyAndOrderFront(nil)
     }
 
     func openSettingsWindow() {

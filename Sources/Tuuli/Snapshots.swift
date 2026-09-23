@@ -49,6 +49,12 @@ enum Snapshots {
                 .environment(engine)
                 .environment(helper)
             snapPopover(popover, name: "popover-\(dark ? "dark" : "light")", dark: dark, dir: dir)
+            for step in 0..<3 {
+                let onboarding = OnboardingView(step: step, finish: {})
+                    .environment(store)
+                    .environment(helper)
+                snapPopover(onboarding, name: "onboarding-\(step + 1)-\(dark ? "dark" : "light")", dark: dark, dir: dir)
+            }
         }
 
         print("Snapshots written to \(dir.path)")
@@ -92,7 +98,7 @@ enum Snapshots {
 
     /// Renders the menu bar popover on a window background, sized to fit its content.
     private static func snapPopover(_ view: some View, name: String, dark: Bool, dir: URL) {
-        let controller = NSHostingController(rootView: view.background(.windowBackground))
+        let controller = NSHostingController(rootView: view)
         let window = NSWindow(contentViewController: controller)
         window.styleMask = [.borderless]
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
