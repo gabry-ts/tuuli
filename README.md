@@ -9,6 +9,7 @@
 [![macOS 26+](https://img.shields.io/badge/macOS-26%2B-black?logo=apple)](#install)
 [![Swift 6.2](https://img.shields.io/badge/Swift-6.2-F05138?logo=swift&logoColor=white)](Package.swift)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](https://www.gnu.org/licenses/gpl-3.0.html)
+[![Latest release](https://img.shields.io/github/v/release/gabry-ts/tuuli)](https://github.com/gabry-ts/tuuli/releases)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png">
@@ -81,7 +82,7 @@
 
 ## Install
 
-1. Download the latest `Tuuli-<version>.dmg` from Releases and drag the app to Applications.
+1. Download the latest `Tuuli-<version>.dmg` from [Releases](https://github.com/gabry-ts/tuuli/releases) and drag the app to Applications.
 2. Tuuli is signed with a local Apple Development identity and not notarized, so Gatekeeper blocks the first launch:
    - Open the app once, then go to **System Settings > Privacy & Security** and click **Open Anyway**.
    - Or remove the quarantine flag from Terminal: `xattr -dr com.apple.quarantine /Applications/Tuuli.app`
