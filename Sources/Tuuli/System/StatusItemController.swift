@@ -9,9 +9,9 @@ import SwiftUI
 final class StatusItemController: NSObject {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
-    private let render: () -> NSImage?
+    private let render: () -> StatusContent
 
-    init(content: some View, render: @escaping () -> NSImage?) {
+    init(content: some View, render: @escaping () -> StatusContent) {
         self.render = render
         super.init()
         let host = NSHostingController(rootView: content)
@@ -31,12 +31,22 @@ final class StatusItemController: NSObject {
     /// Draws the image and re-arms tracking, so any change to what it reads (settings,
     /// readings, spin angle) triggers the next draw.
     private func refresh() {
-        let image = withObservationTracking {
+        let content = withObservationTracking {
             render()
         } onChange: { [weak self] in
             Task { @MainActor in self?.refresh() }
         }
-        item.button?.image = image ?? NSImage(systemSymbolName: "fan.fill", accessibilityDescription: "Tuuli")
+        guard let button = item.button else { return }
+        button.image = content.icon
+        button.imagePosition = switch (content.icon != nil, content.title.isEmpty) {
+        case (true, true): .imageOnly
+        case (true, false): content.iconLeading ? .imageLeading : .imageTrailing
+        case (false, _): .noImage
+        }
+        // Setting the title only when it changes keeps spin frames to an image swap.
+        if button.title != content.title {
+            button.attributedTitle = NSAttributedString(string: content.title, attributes: [.font: StatusImage.font])
+        }
     }
 
     @objc private func toggle() {

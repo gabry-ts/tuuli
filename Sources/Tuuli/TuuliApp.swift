@@ -50,7 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         .environment(engine)
         .environment(helper)
         statusItem = StatusItemController(content: popover) { [store, monitor, spinner] in
-            StatusImage.render(store: store, monitor: monitor, angle: spinner.angle)
+            StatusImage.content(store: store, monitor: monitor, angle: spinner.angle)
         }
         monitor.onSample = { [weak self] in self?.tick() }
         observedPollInterval = store.settings.pollInterval
