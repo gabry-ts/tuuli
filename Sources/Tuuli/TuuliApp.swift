@@ -12,20 +12,10 @@ struct TuuliApp: App {
         }
     }
 
+    /// The menu bar item is an NSStatusItem owned by the app delegate; this scene only
+    /// satisfies SwiftUI's need for one.
     var body: some Scene {
-        MenuBarExtra {
-            MenuContent(
-                openSettings: { appDelegate.openSettingsWindow() },
-                applyNow: { appDelegate.applyFans() }
-            )
-                .environment(appDelegate.store)
-                .environment(appDelegate.monitor)
-                .environment(appDelegate.engine)
-                .environment(appDelegate.helper)
-        } label: {
-            MenuBarLabel(store: appDelegate.store, monitor: appDelegate.monitor, spinner: appDelegate.spinner)
-        }
-        .menuBarExtraStyle(.window)
+        SwiftUI.Settings { EmptyView() }
     }
 }
 
@@ -41,12 +31,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     private var observedPollInterval: Double = 0
+    private var statusItem: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let isFirstLaunch = !SettingsStore.hasSavedSettings
         store.saveNow()
 
         helper.refresh()
+        let popover = MenuContent(
+            openSettings: { [weak self] in
+                self?.statusItem?.closePopover()
+                self?.openSettingsWindow()
+            },
+            applyNow: { [weak self] in self?.applyFans() }
+        )
+        .environment(store)
+        .environment(monitor)
+        .environment(engine)
+        .environment(helper)
+        statusItem = StatusItemController(content: popover) { [store, monitor, spinner] in
+            StatusImage.render(store: store, monitor: monitor, angle: spinner.angle)
+        }
         monitor.onSample = { [weak self] in self?.tick() }
         observedPollInterval = store.settings.pollInterval
         monitor.start(interval: observedPollInterval)
@@ -77,7 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             monitor.schedule(interval: observedPollInterval)
         }
         engine.tick(monitor: monitor, settings: settings, helper: helper)
-        let spinning = settings.menuBar.spinsIcon && settings.menuBar.items.contains(.icon)
+        let spinning = settings.menuBar.spinsIcon && settings.menuBar.displayedItems.contains(.icon)
         let fastest = monitor.fans.max { $0.current < $1.current }
         spinner.update(percent: spinning && (fastest?.current ?? 0) > 0 ? fastest?.percent : nil)
         notifier.check(settings: settings, monitor: monitor)

@@ -42,6 +42,9 @@ struct MenuBarSettings: Codable, Hashable {
     var items: [StatusElement] = [.icon, .temperature(Aggregate.cpuHottest.sensorID)]
     var spinsIcon = true
 
+    /// What the status item actually shows: an empty list falls back to the icon.
+    var displayedItems: [StatusElement] { items.isEmpty ? [.icon] : items }
+
     init() {}
 
     private enum LegacyKeys: String, CodingKey {

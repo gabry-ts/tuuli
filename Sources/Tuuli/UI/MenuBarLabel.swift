@@ -1,15 +1,14 @@
 import SwiftUI
 import TuuliCore
 
-/// The status item. Rendered to a template image, since MenuBarExtra labels only show a
-/// single text or image and the readings are laid out side by side.
+/// The status item as a view, for the live preview in settings.
 struct MenuBarLabel: View {
     let store: SettingsStore
     let monitor: Monitor
     var spinner: IconSpinner?
 
     var body: some View {
-        if let image = rendered {
+        if let image = StatusImage.render(store: store, monitor: monitor, angle: spinner?.angle ?? 0) {
             Image(nsImage: image)
                 .renderingMode(.template)
         } else {
@@ -17,37 +16,69 @@ struct MenuBarLabel: View {
         }
     }
 
-    private var fanSpeed: String {
-        guard let rpm = monitor.fans.map(\.current).max() else { return "– rpm" }
-        return "\(Int(rpm.rounded())) rpm"
+}
+
+/// Draws the status item's readings side by side into one template image. Plain AppKit
+/// drawing, since it runs up to 20 times a second while the icon spins.
+@MainActor
+enum StatusImage {
+    private enum Part {
+        case icon
+        case text(String)
     }
 
-    private var rendered: NSImage? {
-        let unit = store.settings.unit
-        let items: [StatusElement] = store.settings.menuBar.items.isEmpty ? [.icon] : store.settings.menuBar.items
+    private static let height: CGFloat = 18
+    private static let spacing: CGFloat = 5
+    private static let attributes: [NSAttributedString.Key: Any] = [
+        .font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium),
+        .foregroundColor: NSColor.black,
+    ]
+    private static let glyph = NSImage(systemSymbolName: "fan.fill", accessibilityDescription: nil)?
+        .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 13, weight: .medium))
 
-        let content = HStack(spacing: 4) {
-            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                switch item {
-                case .icon:
-                    Image(systemName: "fan.fill")
-                        .font(.system(size: 13, weight: .medium))
-                        .rotationEffect(.degrees(spinner?.angle ?? 0))
-                case .temperature(let sensor):
-                    Text(unit.short(monitor.value(sensor)))
-                        .font(.system(size: 13, weight: .medium).monospacedDigit())
-                case .fanSpeed:
-                    Text(fanSpeed)
-                        .font(.system(size: 13, weight: .medium).monospacedDigit())
-                }
+    /// Reads every observable input up front, so observation tracking around this call
+    /// sees them all.
+    static func render(store: SettingsStore, monitor: Monitor, angle: Double) -> NSImage? {
+        let unit = store.settings.unit
+        let fastest = monitor.fans.map(\.current).max()
+        let parts: [Part] = store.settings.menuBar.displayedItems.map { item in
+            switch item {
+            case .icon: .icon
+            case .temperature(let sensor): .text(unit.short(monitor.value(sensor)))
+            case .fanSpeed: .text(fastest.map { "\(Int($0.rounded())) rpm" } ?? "– rpm")
             }
         }
-        .foregroundStyle(.black)
-        .fixedSize()
+        guard let glyph else { return nil }
 
-        let renderer = ImageRenderer(content: content)
-        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
-        guard let image = renderer.nsImage else { return nil }
+        let widths = parts.map { part -> CGFloat in
+            switch part {
+            case .icon: max(glyph.size.width, glyph.size.height)
+            case .text(let text): ceil((text as NSString).size(withAttributes: attributes).width)
+            }
+        }
+        let width = widths.reduce(0, +) + spacing * CGFloat(max(parts.count - 1, 0))
+
+        let image = NSImage(size: NSSize(width: width, height: height), flipped: false) { _ in
+            var x: CGFloat = 0
+            for (part, partWidth) in zip(parts, widths) {
+                switch part {
+                case .icon:
+                    NSGraphicsContext.saveGraphicsState()
+                    let transform = NSAffineTransform()
+                    transform.translateX(by: x + partWidth / 2, yBy: height / 2)
+                    transform.rotate(byDegrees: -angle)
+                    transform.concat()
+                    let size = glyph.size
+                    glyph.draw(in: NSRect(x: -size.width / 2, y: -size.height / 2, width: size.width, height: size.height))
+                    NSGraphicsContext.restoreGraphicsState()
+                case .text(let text):
+                    let size = (text as NSString).size(withAttributes: attributes)
+                    (text as NSString).draw(at: NSPoint(x: x, y: (height - size.height) / 2), withAttributes: attributes)
+                }
+                x += partWidth + spacing
+            }
+            return true
+        }
         image.isTemplate = true
         return image
     }
