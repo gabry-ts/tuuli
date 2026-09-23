@@ -14,52 +14,122 @@ struct MenuContent: View {
 
     var body: some View {
         let popover = store.settings.popover
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
+            header
             ForEach(popover.sections.filter(\.isEnabled), id: \.section) { entry in
                 sectionView(entry.section, popover: popover)
             }
-            HStack {
-                Button("Settings…", action: openSettings)
-                    .keyboardShortcut(",")
-                Spacer()
-                Button("Quit Tuuli") { NSApplication.shared.terminate(nil) }
-                    .keyboardShortcut("q")
-            }
+            footer
         }
-        .padding(14)
-        .frame(width: 290)
+        .padding(12)
+        .frame(width: 300)
+        .background(AirBackground())
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "fan.fill")
+                .foregroundStyle(Theme.sky.gradient)
+            Text("Tuuli")
+                .font(.system(.headline, design: .rounded))
+            Spacer()
+            Label(monitor.isOnBattery ? "Battery" : "Power Adapter",
+                  systemImage: monitor.isOnBattery ? "battery.75percent" : "bolt.fill")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private var footer: some View {
+        HStack {
+            Button(action: openSettings) {
+                Label("Settings", systemImage: "gearshape")
+            }
+            .keyboardShortcut(",")
+            Spacer()
+            Button { NSApplication.shared.terminate(nil) } label: {
+                Label("Quit", systemImage: "power")
+            }
+            .keyboardShortcut("q")
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.secondary)
+        .font(.callout)
+        .padding(.horizontal, 4)
+        .padding(.top, 2)
     }
 
     @ViewBuilder
     private func sectionView(_ section: PopoverSection, popover: PopoverSettings) -> some View {
+        let unit = store.settings.unit
         switch section {
         case .temperatures:
             if !popover.temperatureSensors.isEmpty {
-                self.section("Temperatures") {
-                    ForEach(Array(popover.temperatureSensors.enumerated()), id: \.offset) { _, sensor in
-                        row(monitor.name(of: sensor), store.settings.unit.format(monitor.value(sensor)))
+                Card(padding: 12) {
+                    VStack(spacing: 8) {
+                        ForEach(Array(popover.temperatureSensors.enumerated()), id: \.offset) { _, sensor in
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(Theme.heat(monitor.value(sensor)))
+                                    .frame(width: 7, height: 7)
+                                Text(monitor.name(of: sensor))
+                                Spacer()
+                                TemperatureText(celsius: monitor.value(sensor), unit: unit)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
                 }
-                Divider()
             }
         case .chart:
-            self.section(monitor.name(of: popover.chartSensor)) {
-                sparkline(sensor: popover.chartSensor, minutes: popover.chartMinutes)
+            Card(padding: 12) {
+                hero(sensor: popover.chartSensor, minutes: popover.chartMinutes)
             }
-            Divider()
         case .fans:
-            self.section("Fans") {
-                if monitor.fans.isEmpty {
-                    Text("No fans detected").foregroundStyle(.secondary)
-                }
-                ForEach(monitor.fans) { fan in
-                    row(fan.name, fan.current > 0 ? "\(Int(fan.current.rounded())) rpm" : "Off")
+            Card(padding: 12) {
+                VStack(spacing: 10) {
+                    if monitor.fans.isEmpty {
+                        Text("No fans on this Mac").foregroundStyle(.secondary)
+                    }
+                    ForEach(monitor.fans) { fan in
+                        HStack(spacing: 10) {
+                            SpinningFan(rpm: fan.current, size: 15)
+                            Text(fan.name)
+                                .frame(width: 44, alignment: .leading)
+                            FanBar(fan: fan)
+                            Text(verbatim: fan.rpmText)
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                                .frame(width: 72, alignment: .trailing)
+                        }
+                    }
                 }
             }
-            Divider()
         case .modePicker:
-            modeSection
-            Divider()
+            Card(padding: 12) {
+                modeSection
+            }
+        }
+    }
+
+    private func hero(sensor: String, minutes: Int) -> some View {
+        let value = monitor.value(sensor)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                TemperatureText(celsius: value, unit: store.settings.unit, compact: true)
+                    .font(.system(size: 34, weight: .light, design: .rounded))
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(Theme.mood(value))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Theme.heat(value))
+                    Text(monitor.name(of: sensor))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            sparkline(sensor: sensor, minutes: minutes)
         }
     }
 
@@ -69,25 +139,26 @@ struct MenuContent: View {
 
     @ViewBuilder
     private var modeSection: some View {
-        @Bindable var store = store
-        section("Mode") {
-            Picker("Mode", selection: $store.settings.activeModeID) {
+        VStack(alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
                 ForEach(store.settings.modes) { mode in
-                    Label(mode.name, systemImage: mode.kind.icon).tag(mode.id)
+                    ModeChip(mode: mode, isActive: mode.id == store.settings.activeModeID) {
+                        store.settings.activeModeID = mode.id
+                        applyNow()
+                    }
                 }
             }
-            .labelsHidden()
             .disabled(!helper.isReady)
-            .onChange(of: store.settings.activeModeID) { applyNow() }
 
             if activeMode.kind == .manual {
-                HStack {
-                    Image(systemName: "fan")
+                HStack(spacing: 8) {
+                    Image(systemName: "wind")
                         .foregroundStyle(.secondary)
                     Slider(value: manualPercent, in: 0...100, step: 5) { editing in
                         if !editing { applyNow() }
                     }
-                    Text("\(Int(activeMode.adapter.manualPercent))%")
+                    .tint(Theme.sky)
+                    Text(verbatim: "\(Int(activeMode.adapter.manualPercent))%")
                         .monospacedDigit()
                         .frame(width: 40, alignment: .trailing)
                 }
@@ -95,15 +166,20 @@ struct MenuContent: View {
             }
 
             if !helper.isReady {
-                caption("Install the helper in Settings to control fans.")
+                HStack {
+                    caption("Fan control needs the helper.")
+                    Spacer()
+                    Button("Set Up…", action: openSettings)
+                        .controlSize(.small)
+                }
             } else {
-                caption("\(monitor.isOnBattery ? "Battery" : "Power Adapter")\(holdingText)")
+                caption(holdingText)
             }
         }
     }
 
     private var holdingText: String {
-        engine.targetPercent.map { " · holding \(Int($0.rounded()))%" } ?? " · system controls the fans"
+        engine.targetPercent.map { "Fans held at \(Int($0.rounded()))%" } ?? "macOS is in charge of the fans"
     }
 
     private var manualPercent: Binding<Double> {
@@ -125,36 +201,22 @@ struct MenuContent: View {
         let points = monitor.history.filter { $0.date >= start }.compactMap { sample in
             sample.values[sensor].map { (sample.date, unit.convert($0)) }
         }
+        let low = (points.map(\.1).min() ?? 0) - 2
+        let high = (points.map(\.1).max() ?? 1) + 2
+        let color = Theme.heat(monitor.value(sensor))
         return Chart(points, id: \.0) { point in
-            AreaMark(x: .value("Time", point.0), y: .value("Temperature", point.1))
-                .foregroundStyle(.linearGradient(colors: [.accentColor.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom))
+            AreaMark(x: .value("Time", point.0), yStart: .value("Low", low), yEnd: .value("Temperature", point.1))
+                .interpolationMethod(.catmullRom)
+                .foregroundStyle(.linearGradient(colors: [color.opacity(0.3), color.opacity(0.02)], startPoint: .top, endPoint: .bottom))
             LineMark(x: .value("Time", point.0), y: .value("Temperature", point.1))
+                .interpolationMethod(.catmullRom)
+                .foregroundStyle(color)
+                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
         }
         .chartXAxis(.hidden)
-        .chartYScale(domain: .automatic(includesZero: false))
-        .chartYAxis {
-            AxisMarks(position: .trailing, values: .automatic(desiredCount: 3))
-        }
-        .frame(height: 70)
-    }
-
-    private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            content()
-        }
-    }
-
-    private func row(_ title: String, _ value: String) -> some View {
-        HStack {
-            Text(title)
-            Spacer()
-            Text(value)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-        }
+        .chartYAxis(.hidden)
+        .chartYScale(domain: low...max(high, low + 1))
+        .frame(height: 48)
     }
 
     private func caption(_ text: String) -> some View {
