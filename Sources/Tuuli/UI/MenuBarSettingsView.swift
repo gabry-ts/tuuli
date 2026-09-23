@@ -13,28 +13,37 @@ struct MenuBarSettingsView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            Form {
-                Section {
-                    statusStrip
-                    Toggle("Spin the icon while the fans run", isOn: store.binding(\.menuBar.spinsIcon))
-                } header: {
-                    Text("Status Item")
-                } footer: {
-                    Text("Drag to reorder. Click a reading to change or remove it.")
-                        .foregroundStyle(.secondary)
+            AirPage(title: "Menu Bar", subtitle: "What sits in the menu bar, and what opens under it.", drawsBackground: false) {
+                Card {
+                    VStack(alignment: .leading, spacing: 14) {
+                        CardTitle(title: "Status Item", systemImage: "menubar.rectangle")
+                        statusStrip
+                        Text("Drag to reorder. Click a reading to change or remove it.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Divider().opacity(0.5)
+                        HStack {
+                            Text("Spin the icon while the fans run")
+                            Spacer()
+                            Toggle("Spin the icon while the fans run", isOn: store.binding(\.menuBar.spinsIcon))
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .controlSize(.small)
+                                .tint(Theme.sky)
+                        }
+                    }
                 }
 
-                Section {
-                    popoverSections
-                } header: {
-                    Text("Popover")
-                } footer: {
-                    Text("Drag to reorder. Switch off what you don't need.")
-                        .foregroundStyle(.secondary)
+                Card {
+                    VStack(alignment: .leading, spacing: 14) {
+                        CardTitle(title: "Popover", systemImage: "rectangle.stack")
+                        popoverSections
+                        Text("Drag to reorder. Switch off what you don't need.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
-            .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
 
             MenuBarPreview()
                 .frame(width: 320)
@@ -60,9 +69,8 @@ struct MenuBarSettingsView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, minHeight: 34)
-        .background(.bar, in: .rect(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.separator))
+        .frame(maxWidth: .infinity, minHeight: 36)
+        .background(.primary.opacity(0.05), in: .rect(cornerRadius: 10))
         .animation(.snappy, value: items)
     }
 
@@ -124,13 +132,12 @@ struct MenuBarSettingsView: View {
 
     private var popoverSections: some View {
         let sections = store.settings.popover.sections
-        return VStack(spacing: 8) {
+        return VStack(spacing: 6) {
             ForEach(Array(sections.enumerated()), id: \.element.section) { index, entry in
                 sectionCard(index: index, entry: entry)
                     .reorderable(index: index, items: sectionsBinding, dragging: $draggingSection)
             }
         }
-        .padding(.vertical, 4)
         .animation(.snappy, value: sections)
     }
 
@@ -141,7 +148,7 @@ struct MenuBarSettingsView: View {
                 Image(systemName: "line.3.horizontal")
                     .foregroundStyle(.tertiary)
                 Image(systemName: entry.section.icon)
-                    .foregroundStyle(entry.isEnabled ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(entry.isEnabled ? AnyShapeStyle(Theme.sky) : AnyShapeStyle(.secondary))
                     .frame(width: 20)
                 Text(entry.section.title)
                     .foregroundStyle(entry.isEnabled ? .primary : .secondary)
@@ -150,6 +157,7 @@ struct MenuBarSettingsView: View {
                     .labelsHidden()
                     .toggleStyle(.switch)
                     .controlSize(.small)
+                    .tint(Theme.sky)
             }
             if entry.isEnabled {
                 sectionOptions(entry.section)
@@ -157,7 +165,7 @@ struct MenuBarSettingsView: View {
             }
         }
         .padding(12)
-        .background(.background.secondary, in: .rect(cornerRadius: 10))
+        .background(.primary.opacity(entry.isEnabled ? 0.05 : 0.025), in: .rect(cornerRadius: 12))
         .opacity(draggingSection == index ? 0.5 : 1)
         .contentShape(.rect)
     }
@@ -171,12 +179,14 @@ struct MenuBarSettingsView: View {
         case .chart:
             VStack(alignment: .leading, spacing: 8) {
                 SensorPicker(title: "Sensor", selection: $store.settings.popover.chartSensor)
+                    .fixedSize()
                 Picker("Window", selection: $store.settings.popover.chartMinutes) {
                     Text("5 min").tag(5)
                     Text("15 min").tag(15)
                     Text("60 min").tag(60)
                 }
                 .pickerStyle(.segmented)
+                .fixedSize()
             }
         case .fans, .modePicker:
             EmptyView()
@@ -339,9 +349,7 @@ private struct MenuBarPreview: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            Text("Preview")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+            CardTitle(title: "Live Preview", systemImage: "eye")
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack {
                 Spacer()
@@ -351,15 +359,16 @@ private struct MenuBarPreview: View {
                     .background(.fill.secondary, in: .rect(cornerRadius: 5))
             }
             .padding(.horizontal, 8)
-            .frame(height: 28)
-            .background(.bar, in: .rect(cornerRadius: 8))
+            .frame(height: 30)
+            .background(.primary.opacity(0.06), in: .rect(cornerRadius: 10))
             MenuContent(openSettings: {}, applyNow: {})
                 .clipShape(.rect(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.separator))
                 .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
                 .allowsHitTesting(false)
         }
-        .padding(20)
+        .padding(.horizontal, 20)
+        .padding(.top, 88)
     }
 }
 

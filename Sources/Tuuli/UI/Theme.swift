@@ -112,6 +112,8 @@ struct Card<Content: View>: View {
 struct AirPage<Content: View>: View {
     let title: String
     var subtitle: String?
+    /// Off when the page sits inside a view that already draws the backdrop.
+    var drawsBackground = true
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -132,7 +134,7 @@ struct AirPage<Content: View>: View {
             .frame(maxWidth: 820, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .background(AirBackground())
+        .background { if drawsBackground { AirBackground() } }
     }
 }
 
