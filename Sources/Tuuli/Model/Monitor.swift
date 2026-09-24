@@ -10,6 +10,15 @@ struct HistorySample: Identifiable {
     var id: Date { date }
 }
 
+extension Array {
+    /// Every nth element, so the result has at most `limit` elements.
+    func thinned(to limit: Int) -> [Element] {
+        guard count > limit, limit > 0 else { return self }
+        let stride = Int((Double(count) / Double(limit)).rounded(.up))
+        return enumerated().compactMap { $0.offset % stride == 0 ? $0.element : nil }
+    }
+}
+
 /// Polls the SMC for temperatures and fan speeds and keeps a rolling history.
 @MainActor
 @Observable
@@ -28,6 +37,9 @@ final class Monitor {
 
     private let smc: SMC?
     private var timer: Timer?
+    /// SMC reads take tens of milliseconds, so they happen off the main thread.
+    private let queue = DispatchQueue(label: "com.gabrielepartiti.tuuli.smc", qos: .utility)
+    private var isSampling = false
 
     init() {
         do {
@@ -48,11 +60,16 @@ final class Monitor {
     }
 
     func start(interval: TimeInterval) {
-        if sensors.isEmpty, let smc {
-            sensors = smc.discoverSensors()
+        guard let smc else { return }
+        queue.async { [weak self] in
+            let sensors = smc.discoverSensors()
+            Task { @MainActor in
+                guard let self else { return }
+                if self.sensors.isEmpty { self.sensors = sensors }
+                self.sample()
+                self.schedule(interval: interval)
+            }
         }
-        sample()
-        schedule(interval: interval)
     }
 
     func schedule(interval: TimeInterval) {
@@ -94,11 +111,27 @@ final class Monitor {
     }
 
     private func sample() {
-        guard let smc else { return }
+        guard let smc, !isSampling else { return }
+        isSampling = true
+        let sensors = sensors
+        queue.async { [weak self] in
+            let raw = smc.readTemperatures(sensors)
+            let fans = smc.readFans()
+            let onBattery = PowerSource.isOnBattery
+            Task { @MainActor in
+                self?.apply(raw: raw, fans: fans, onBattery: onBattery)
+            }
+        }
+    }
+
+    /// Publishes a sample. Unchanged values aren't reassigned, so views that only show
+    /// them don't redraw.
+    private func apply(raw: [String: Double], fans: [FanStatus], onBattery: Bool) {
+        isSampling = false
         let now = Date()
-        snapshot = SensorSnapshot(date: now, sensors: sensors, raw: smc.readTemperatures(sensors))
-        fans = smc.readFans()
-        isOnBattery = PowerSource.isOnBattery
+        snapshot = SensorSnapshot(date: now, sensors: sensors, raw: raw)
+        if fans != self.fans { self.fans = fans }
+        if onBattery != isOnBattery { isOnBattery = onBattery }
 
         var values: [String: Double] = [:]
         for aggregate in Aggregate.allCases {
