@@ -24,7 +24,7 @@ struct OverviewView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    SpinningFan(rpm: monitor.fans.map(\.current).max() ?? 0, size: 72)
+                    FanGlyph(rpm: monitor.fans.map(\.current).max() ?? 0, size: 72)
                         .opacity(0.9)
                 }
             }
@@ -47,7 +47,7 @@ struct OverviewView: View {
                         CardTitle(title: "Fans", systemImage: "wind")
                         ForEach(monitor.fans) { fan in
                             HStack(spacing: 12) {
-                                SpinningFan(rpm: fan.current, size: 20)
+                                FanGlyph(rpm: fan.current, size: 20)
                                 Text(fan.name)
                                     .frame(width: 50, alignment: .leading)
                                 FanBar(fan: fan)
@@ -105,9 +105,16 @@ struct HistoryChart: View {
         Color(red: 0.96, green: 0.70, blue: 0.30),
     ]
 
+    /// The chosen window, always shown in full even while history is still short.
+    private var window: ClosedRange<Date> {
+        let now = monitor.history.last?.date ?? Date()
+        return now.addingTimeInterval(-Double(minutes) * 60)...now
+    }
+
+    /// At most ~180 points per series: more is invisible at this size and costly to draw.
     private var samples: [HistorySample] {
         let start = Date().addingTimeInterval(-Double(minutes) * 60)
-        return monitor.history.filter { $0.date >= start }
+        return monitor.history.filter { $0.date >= start }.thinned(to: 180)
     }
 
     private var series: [Aggregate] {
@@ -147,6 +154,7 @@ struct HistoryChart: View {
                 }
             }
             .chartForegroundStyleScale(domain: series.map(\.title), range: Self.palette.prefix(series.count).map { $0 })
+            .chartXScale(domain: window)
             .chartYAxisLabel(unit.symbol)
             .chartYScale(domain: .automatic(includesZero: false))
             .chartLegend(position: .bottom, alignment: .leading)
@@ -173,6 +181,7 @@ struct HistoryChart: View {
                     domain: monitor.fans.map(\.name),
                     range: monitor.fans.indices.map { $0 == 0 ? Theme.sky : Color(red: 0.45, green: 0.80, blue: 0.95) }
                 )
+                .chartXScale(domain: window)
                 .chartYAxisLabel("rpm")
                 .chartLegend(position: .bottom, alignment: .leading)
                 .frame(height: 110)
