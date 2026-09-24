@@ -73,25 +73,29 @@ struct AirBackground: View {
                 endPoint: .bottom
             )
             .opacity(0.85 * solidity)
+            // Radial gradients rather than blurred circles: same soft glow, but no blur
+            // pass to recompute each time the page redraws.
             GeometryReader { proxy in
-                Circle()
-                    .fill(Theme.sky.opacity(dark ? 0.22 : 0.20))
-                    .frame(width: proxy.size.width * 0.7)
-                    .blur(radius: 90)
-                    .offset(x: -proxy.size.width * 0.2, y: -proxy.size.height * 0.25)
-                Circle()
-                    .fill(Color(red: 0.55, green: 0.85, blue: 0.95).opacity(dark ? 0.12 : 0.22))
-                    .frame(width: proxy.size.width * 0.5)
-                    .blur(radius: 80)
-                    .offset(x: proxy.size.width * 0.6, y: proxy.size.height * 0.45)
+                glow(Theme.sky.opacity(dark ? 0.24 : 0.22), radius: proxy.size.width * 0.5)
+                    .position(x: proxy.size.width * 0.15, y: proxy.size.height * 0.1)
+                glow(Color(red: 0.55, green: 0.85, blue: 0.95).opacity(dark ? 0.14 : 0.24), radius: proxy.size.width * 0.4)
+                    .position(x: proxy.size.width * 0.9, y: proxy.size.height * 0.95)
             }
         }
         .ignoresSafeArea()
     }
+
+    private func glow(_ color: Color, radius: CGFloat) -> some View {
+        Circle()
+            .fill(RadialGradient(colors: [color, color.opacity(0)], center: .center, startRadius: 0, endRadius: radius))
+            .frame(width: radius * 2, height: radius * 2)
+    }
 }
 
-/// A frosted card with a hairline highlight.
+/// A frosted-looking card with a hairline highlight. A translucent fill rather than a
+/// material: over the smooth backdrop it looks the same, without a blur pass per frame.
 struct Card<Content: View>: View {
+    @Environment(\.colorScheme) private var colorScheme
     var padding: CGFloat = 16
     @ViewBuilder var content: Content
 
@@ -99,7 +103,10 @@ struct Card<Content: View>: View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.ultraThinMaterial, in: .rect(cornerRadius: Theme.cardRadius))
+            .background(
+                colorScheme == .dark ? Color.white.opacity(0.06) : Color.white.opacity(0.55),
+                in: .rect(cornerRadius: Theme.cardRadius)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.cardRadius)
                     .strokeBorder(.white.opacity(0.18), lineWidth: 0.5)
@@ -155,18 +162,15 @@ struct CardTitle: View {
 
 // MARK: - Readouts
 
-/// A temperature that eases between values and takes its color from the heat scale.
+/// A temperature with fixed-width digits.
 struct TemperatureText: View {
     let celsius: Double?
     let unit: TemperatureUnit
     var compact = false
 
     var body: some View {
-        let value = celsius.map(unit.convert) ?? 0
         Text(verbatim: compact ? unit.short(celsius) : unit.format(celsius))
             .monospacedDigit()
-            .contentTransition(.numericText(value: value))
-            .animation(.smooth, value: value)
     }
 }
 
@@ -186,7 +190,6 @@ struct HeatRing: View {
                     .trim(from: 0, to: Theme.heatFraction(celsius))
                     .stroke(Theme.heat(celsius).gradient, style: StrokeStyle(lineWidth: 7, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                    .animation(.smooth, value: celsius)
                 TemperatureText(celsius: celsius, unit: unit, compact: true)
                     .font(.system(size: size * 0.24, weight: .semibold, design: .rounded))
             }
@@ -209,28 +212,22 @@ struct HeatBar: View {
                 Capsule()
                     .fill(Theme.heat(celsius).gradient)
                     .frame(width: max(proxy.size.width * Theme.heatFraction(celsius), 4))
-                    .animation(.smooth, value: celsius)
             }
         }
         .frame(height: 5)
     }
 }
 
-/// Fan glyph that turns at a pace matching the fan's real speed, and rests when stopped.
-struct SpinningFan: View {
+/// Fan glyph, tinted while the fan runs. Deliberately still: animating it kept the
+/// whole window recompositing and cost a quarter of a core.
+struct FanGlyph: View {
     let rpm: Double
     var size: CGFloat = 18
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: rpm <= 0)) { context in
-            // A visual pace, not the real one: 1000 rpm ≈ half a turn per second.
-            let degreesPerSecond = rpm * 0.18
-            let angle = context.date.timeIntervalSinceReferenceDate * degreesPerSecond
-            Image(systemName: "fan.fill")
-                .font(.system(size: size))
-                .rotationEffect(.degrees(rpm > 0 ? angle.truncatingRemainder(dividingBy: 360) : 0))
-        }
-        .foregroundStyle(rpm > 0 ? AnyShapeStyle(Theme.sky.gradient) : AnyShapeStyle(.secondary))
+        Image(systemName: "fan.fill")
+            .font(.system(size: size))
+            .foregroundStyle(rpm > 0 ? AnyShapeStyle(Theme.sky.gradient) : AnyShapeStyle(.secondary))
     }
 }
 
@@ -245,7 +242,6 @@ struct FanBar: View {
                 Capsule()
                     .fill(Theme.sky.gradient)
                     .frame(width: fan.current > 0 ? max(proxy.size.width * max(fan.percent, 3) / 100, 4) : 0)
-                    .animation(.smooth, value: fan.current)
             }
         }
         .frame(height: 5)

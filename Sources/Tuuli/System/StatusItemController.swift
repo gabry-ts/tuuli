@@ -44,7 +44,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         case (true, false): content.iconLeading ? .imageLeading : .imageTrailing
         case (false, _): .noImage
         }
-        // Setting the title only when it changes keeps spin frames to an image swap.
+        // Setting the title only when it changes avoids needless relayout.
         if button.title != content.title {
             button.attributedTitle = NSAttributedString(string: content.title, attributes: [.font: StatusImage.font])
         }

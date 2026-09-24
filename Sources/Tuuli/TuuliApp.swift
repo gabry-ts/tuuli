@@ -148,8 +148,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
-    /// Closed windows are torn down rather than kept around, so their live charts and
-    /// spinning fans stop drawing in the background.
+    /// Closed windows are torn down rather than kept around, so their live charts stop
+    /// drawing in the background.
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
         window.contentViewController = nil

@@ -197,7 +197,7 @@ struct FanConfigEditor: View {
                         Label {
                             Text(verbatim: "\(fan.name) · \(Int(fan.rpm(forPercent: config.manualPercent))) rpm")
                         } icon: {
-                            SpinningFan(rpm: fan.rpm(forPercent: config.manualPercent), size: 14)
+                            FanGlyph(rpm: fan.rpm(forPercent: config.manualPercent), size: 14)
                         }
                         .foregroundStyle(.secondary)
                     }

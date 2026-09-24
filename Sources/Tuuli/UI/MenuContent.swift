@@ -94,7 +94,7 @@ struct MenuContent: View {
                     }
                     ForEach(monitor.fans) { fan in
                         HStack(spacing: 10) {
-                            SpinningFan(rpm: fan.current, size: 15)
+                            FanGlyph(rpm: fan.current, size: 15)
                             Text(fan.name)
                                 .frame(width: 44, alignment: .leading)
                             FanBar(fan: fan)
@@ -198,7 +198,7 @@ struct MenuContent: View {
     private func sparkline(sensor: String, minutes: Int) -> some View {
         let start = Date().addingTimeInterval(-Double(minutes) * 60)
         let unit = store.settings.unit
-        let points = monitor.history.filter { $0.date >= start }.compactMap { sample in
+        let points = monitor.history.filter { $0.date >= start }.thinned(to: 90).compactMap { sample in
             sample.values[sensor].map { (sample.date, unit.convert($0)) }
         }
         let low = (points.map(\.1).min() ?? 0) - 2
