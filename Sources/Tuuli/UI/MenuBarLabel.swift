@@ -5,10 +5,9 @@ import TuuliCore
 struct MenuBarLabel: View {
     let store: SettingsStore
     let monitor: Monitor
-    var spinner: IconSpinner?
 
     var body: some View {
-        if let image = StatusImage.render(store: store, monitor: monitor, angle: spinner?.angle ?? 0) {
+        if let image = StatusImage.render(store: store, monitor: monitor) {
             Image(nsImage: image)
                 .renderingMode(.template)
         } else {
@@ -65,7 +64,7 @@ enum StatusImage {
 
     /// Reads every observable input up front, so observation tracking around this call
     /// sees them all.
-    static func content(store: SettingsStore, monitor: Monitor, angle: Double) -> StatusContent {
+    static func content(store: SettingsStore, monitor: Monitor) -> StatusContent {
         let parts = parts(store: store, monitor: monitor)
         let texts = parts.compactMap { part -> String? in
             if case .text(let text) = part { return text }
@@ -73,32 +72,15 @@ enum StatusImage {
         }
         let iconIndex = parts.firstIndex { if case .icon = $0 { true } else { false } }
         return StatusContent(
-            icon: iconIndex == nil ? nil : rotatedGlyph(angle),
+            icon: iconIndex == nil ? nil : glyph,
             iconLeading: iconIndex == 0,
             title: texts.joined(separator: separator)
         )
     }
 
-    /// The fan glyph turned by `angle`, in a square canvas so rotation never clips.
-    static func rotatedGlyph(_ angle: Double) -> NSImage? {
-        guard let glyph else { return nil }
-        let side = ceil(max(glyph.size.width, glyph.size.height))
-        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in
-            let transform = NSAffineTransform()
-            transform.translateX(by: side / 2, yBy: side / 2)
-            transform.rotate(byDegrees: -angle)
-            transform.concat()
-            glyph.draw(in: NSRect(x: -glyph.size.width / 2, y: -glyph.size.height / 2,
-                                  width: glyph.size.width, height: glyph.size.height))
-            return true
-        }
-        image.isTemplate = true
-        return image
-    }
-
     /// The whole status item as one template image, for the preview in settings.
-    static func render(store: SettingsStore, monitor: Monitor, angle: Double) -> NSImage? {
-        let content = content(store: store, monitor: monitor, angle: angle)
+    static func render(store: SettingsStore, monitor: Monitor) -> NSImage? {
+        let content = content(store: store, monitor: monitor)
         let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.black]
         let titleSize = content.title.isEmpty ? .zero : (content.title as NSString).size(withAttributes: attributes)
         let iconSide = content.icon?.size.width ?? 0

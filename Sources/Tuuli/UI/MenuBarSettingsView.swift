@@ -21,16 +21,6 @@ struct MenuBarSettingsView: View {
                         Text("Drag to reorder. Click a reading to change or remove it.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Divider().opacity(0.5)
-                        HStack {
-                            Text("Spin the icon while the fans run")
-                            Spacer()
-                            Toggle("Spin the icon while the fans run", isOn: store.binding(\.menuBar.spinsIcon))
-                                .labelsHidden()
-                                .toggleStyle(.switch)
-                                .controlSize(.small)
-                                .tint(Theme.sky)
-                        }
                     }
                 }
 

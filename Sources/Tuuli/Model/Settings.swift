@@ -40,7 +40,6 @@ enum StatusElement: Codable, Hashable {
 
 struct MenuBarSettings: Codable, Hashable {
     var items: [StatusElement] = [.icon, .temperature(Aggregate.cpuHottest.sensorID)]
-    var spinsIcon = true
 
     /// What the status item actually shows: an empty list falls back to the icon.
     var displayedItems: [StatusElement] { items.isEmpty ? [.icon] : items }
@@ -53,7 +52,6 @@ struct MenuBarSettings: Codable, Hashable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        spinsIcon = try c.decodeIfPresent(Bool.self, forKey: .spinsIcon) ?? true
         if let items = try c.decodeIfPresent([StatusElement].self, forKey: .items) {
             self.items = items
             return
