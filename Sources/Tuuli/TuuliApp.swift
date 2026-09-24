@@ -20,12 +20,11 @@ struct TuuliApp: App {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let store = SettingsStore()
     let monitor = Monitor()
     let engine = FanEngine()
     let helper = HelperClient()
-    let spinner = IconSpinner()
     private let notifier = Notifier()
     private let logger = CSVLogger()
     private var settingsWindow: NSWindow?
@@ -38,19 +37,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.saveNow()
 
         helper.refresh()
-        let popover = MenuContent(
-            openSettings: { [weak self] in
-                self?.statusItem?.closePopover()
-                self?.openSettingsWindow()
-            },
-            applyNow: { [weak self] in self?.applyFans() }
-        )
-        .environment(store)
-        .environment(monitor)
-        .environment(engine)
-        .environment(helper)
-        statusItem = StatusItemController(content: popover) { [store, monitor, spinner] in
-            StatusImage.content(store: store, monitor: monitor, angle: spinner.angle)
+        statusItem = StatusItemController { [weak self] in
+            guard let self else { return AnyView(EmptyView()) }
+            return AnyView(
+                MenuContent(
+                    openSettings: { [weak self] in
+                        self?.statusItem?.closePopover()
+                        self?.openSettingsWindow()
+                    },
+                    applyNow: { [weak self] in self?.applyFans() }
+                )
+                .environment(store)
+                .environment(monitor)
+                .environment(engine)
+                .environment(helper)
+            )
+        } render: { [store, monitor] in
+            StatusImage.content(store: store, monitor: monitor)
         }
         monitor.onSample = { [weak self] in self?.tick() }
         observedPollInterval = store.settings.pollInterval
@@ -82,9 +85,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             monitor.schedule(interval: observedPollInterval)
         }
         engine.tick(monitor: monitor, settings: settings, helper: helper)
-        let spinning = settings.menuBar.spinsIcon && settings.menuBar.displayedItems.contains(.icon)
-        let fastest = monitor.fans.max { $0.current < $1.current }
-        spinner.update(percent: spinning && (fastest?.current ?? 0) > 0 ? fastest?.percent : nil)
         notifier.check(settings: settings, monitor: monitor)
         logger.log(settings: settings.logging, monitor: monitor)
     }
@@ -111,6 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.isMovableByWindowBackground = true
         window.center()
         window.isReleasedWhenClosed = false
+        window.delegate = self
         onboardingWindow = window
         window.makeKeyAndOrderFront(nil)
     }
@@ -142,7 +143,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.minSize = NSSize(width: 920, height: 560)
         window.center()
         window.isReleasedWhenClosed = false
+        window.delegate = self
         settingsWindow = window
         window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Closed windows are torn down rather than kept around, so their live charts and
+    /// spinning fans stop drawing in the background.
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        window.contentViewController = nil
+        if window === settingsWindow { settingsWindow = nil }
+        if window === onboardingWindow { onboardingWindow = nil }
     }
 }

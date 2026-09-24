@@ -3,20 +3,21 @@ import Observation
 import SwiftUI
 
 /// The menu bar item and its popover. Managed directly instead of through MenuBarExtra,
-/// which does not reliably redraw its label, so the spinning icon and live readings
-/// update on every change.
+/// which does not reliably redraw its label, so live readings update on every change.
 @MainActor
-final class StatusItemController: NSObject {
+final class StatusItemController: NSObject, NSPopoverDelegate {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
+    private let makeContent: () -> AnyView
     private let render: () -> StatusContent
 
-    init(content: some View, render: @escaping () -> StatusContent) {
+    /// The popover's view is built on open and dropped on close, so nothing in it keeps
+    /// animating while it's hidden.
+    init(content: @escaping () -> AnyView, render: @escaping () -> StatusContent) {
+        self.makeContent = content
         self.render = render
         super.init()
-        let host = NSHostingController(rootView: content)
-        host.sizingOptions = .preferredContentSize
-        popover.contentViewController = host
+        popover.delegate = self
         popover.behavior = .transient
         popover.animates = true
         item.button?.target = self
@@ -29,7 +30,7 @@ final class StatusItemController: NSObject {
     }
 
     /// Draws the image and re-arms tracking, so any change to what it reads (settings,
-    /// readings, spin angle) triggers the next draw.
+    /// readings) triggers the next draw.
     private func refresh() {
         let content = withObservationTracking {
             render()
@@ -54,8 +55,15 @@ final class StatusItemController: NSObject {
         if popover.isShown {
             popover.performClose(nil)
         } else {
+            let host = NSHostingController(rootView: makeContent())
+            host.sizingOptions = .preferredContentSize
+            popover.contentViewController = host
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        popover.contentViewController = nil
     }
 }
