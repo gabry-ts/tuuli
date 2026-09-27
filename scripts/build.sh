@@ -7,9 +7,10 @@ cd "$ROOT"
 SIGN_IDENTITY="${TUULI_SIGN_IDENTITY:-Apple Development: gabrielepartiti@outlook.com (CD2U989KNR)}"
 APP="$ROOT/build/Tuuli.app"
 HELPER_LABEL="com.gabrielepartiti.tuuli.helper"
+ARCHS=(--arch arm64 --arch x86_64)
 
-swift build -c release --arch arm64
-BIN_DIR="$(swift build -c release --arch arm64 --show-bin-path)"
+swift build -c release "${ARCHS[@]}"
+BIN_DIR="$(swift build -c release "${ARCHS[@]}" --show-bin-path)"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
