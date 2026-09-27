@@ -4,6 +4,9 @@ import PackageDescription
 let package = Package(
     name: "Tuuli",
     platforms: [.macOS(.v26)],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.10.0"),
+    ],
     targets: [
         .target(
             name: "TuuliCore",
@@ -11,8 +14,14 @@ let package = Package(
         ),
         .executableTarget(
             name: "Tuuli",
-            dependencies: ["TuuliCore"],
-            path: "Sources/Tuuli"
+            dependencies: [
+                "TuuliCore",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
+            path: "Sources/Tuuli",
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"]),
+            ]
         ),
         .executableTarget(
             name: "TuuliHelper",

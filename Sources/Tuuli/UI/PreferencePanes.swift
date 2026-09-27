@@ -92,6 +92,7 @@ struct LoggingView: View {
 struct GeneralView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(HelperClient.self) private var helper
+    @Environment(Updater.self) private var updater
     @State private var launchAtLogin = LoginItem.status == .enabled
 
     var body: some View {
@@ -157,12 +158,24 @@ struct GeneralView: View {
                     Text("5 s").tag(5.0)
                 }
             }
+
+            Section {
+                Toggle("Check for updates automatically", isOn: Bindable(updater).automaticallyChecksForUpdates)
+                LabeledContent("Version \(Self.appVersion)") {
+                    Button("Check for Updates…") { updater.checkForUpdates() }
+                        .disabled(!updater.canCheckForUpdates)
+                }
+            } header: {
+                Text("Updates")
+            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .background(AirBackground())
         .onAppear { helper.refresh() }
     }
+
+    private static let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
 
     private var helperStatus: String {
         switch helper.status {

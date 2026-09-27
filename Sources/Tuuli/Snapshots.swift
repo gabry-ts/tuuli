@@ -26,6 +26,7 @@ enum Snapshots {
         let monitor = mockMonitor()
         let helper = HelperClient()
         let engine = FanEngine()
+        let updater = Updater(start: false)
 
         func both(_ name: String, title: String, selection: SettingsView.SidebarItem) {
             for dark in [false, true] {
@@ -34,6 +35,7 @@ enum Snapshots {
                     .environment(monitor)
                     .environment(engine)
                     .environment(helper)
+                    .environment(updater)
                 snap(view, name: "\(name)-\(dark ? "dark" : "light")", title: title, dark: dark, dir: dir)
             }
         }
@@ -48,6 +50,7 @@ enum Snapshots {
                 .environment(monitor)
                 .environment(engine)
                 .environment(helper)
+                .environment(updater)
             snapPopover(popover, name: "popover-\(dark ? "dark" : "light")", dark: dark, dir: dir)
             for step in 0..<3 {
                 let onboarding = OnboardingView(step: step, finish: {})

@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let monitor = Monitor()
     let engine = FanEngine()
     let helper = HelperClient()
+    let updater = Updater()
     private let notifier = Notifier()
     private let logger = CSVLogger()
     private var settingsWindow: NSWindow?
@@ -51,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 .environment(monitor)
                 .environment(engine)
                 .environment(helper)
+                .environment(updater)
             )
         } render: { [store, monitor] in
             StatusImage.content(store: store, monitor: monitor)
@@ -128,6 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .environment(monitor)
             .environment(engine)
             .environment(helper)
+            .environment(updater)
         let controller = NSHostingController(rootView: view)
         controller.sceneBridgingOptions = [.toolbars]
         let window = NSWindow(contentViewController: controller)

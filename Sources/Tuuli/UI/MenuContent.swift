@@ -8,6 +8,7 @@ struct MenuContent: View {
     @Environment(Monitor.self) private var monitor
     @Environment(FanEngine.self) private var engine
     @Environment(HelperClient.self) private var helper
+    @Environment(Updater.self) private var updater
     let openSettings: () -> Void
     /// Applies fan changes right away instead of waiting for the next sample.
     let applyNow: () -> Void
@@ -48,6 +49,15 @@ struct MenuContent: View {
             }
             .keyboardShortcut(",")
             Spacer()
+            Menu {
+                Button("Check for Updates…") { updater.checkForUpdates() }
+                    .disabled(!updater.canCheckForUpdates)
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.button)
+            .menuIndicator(.hidden)
+            .fixedSize()
             Button { NSApplication.shared.terminate(nil) } label: {
                 Label("Quit", systemImage: "power")
             }
