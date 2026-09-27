@@ -5,3 +5,4 @@ snapshots/
 .DS_Store
 *.md
 !README.md
+!docs/release-notes/*.md
