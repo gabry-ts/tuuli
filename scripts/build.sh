@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-SIGN_IDENTITY="${TUULI_SIGN_IDENTITY:-Apple Development: gabrielepartiti@outlook.com (CD2U989KNR)}"
+# codesign resolves "Developer ID Application" by prefix. Use "-" for a local ad hoc build.
+SIGN_IDENTITY="${TUULI_SIGN_IDENTITY:-${SIGN_IDENTITY:-Developer ID Application}}"
 APP="$ROOT/build/Tuuli.app"
 HELPER_LABEL="com.gabrielepartiti.tuuli.helper"
 ARCHS=(--arch arm64 --arch x86_64)
@@ -25,8 +26,25 @@ if [[ "$(otool -l "$APP/Contents/MacOS/Tuuli")" != *"@executable_path/../Framewo
     install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Tuuli"
 fi
 
+# Ad hoc code has no team ID, so the hardened runtime's library validation would refuse
+# to load Sparkle. Ad hoc builds are for local testing only and skip it.
+SIGN=(codesign --force --sign "$SIGN_IDENTITY")
+if [[ "$SIGN_IDENTITY" != "-" ]]; then
+    SIGN+=(--options runtime --timestamp)
+fi
+
+# Inside out, without --deep: Sparkle's helpers first, in the order its docs give.
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+"${SIGN[@]}" "$SPARKLE/Versions/B/XPCServices/Installer.xpc"
+"${SIGN[@]}" --preserve-metadata=entitlements "$SPARKLE/Versions/B/XPCServices/Downloader.xpc"
+"${SIGN[@]}" "$SPARKLE/Versions/B/Autoupdate"
+"${SIGN[@]}" "$SPARKLE/Versions/B/Updater.app"
+"${SIGN[@]}" "$SPARKLE"
+
 # The helper checks that clients carry the same team ID, so both must share the identity.
-codesign --force --options runtime --identifier "$HELPER_LABEL" --sign "$SIGN_IDENTITY" "$APP/Contents/MacOS/TuuliHelper"
-codesign --force --options runtime --sign "$SIGN_IDENTITY" "$APP"
+"${SIGN[@]}" --identifier "$HELPER_LABEL" "$APP/Contents/MacOS/TuuliHelper"
+"${SIGN[@]}" "$APP"
+
+codesign --verify --strict "$APP"
 
 echo "Built $APP"
