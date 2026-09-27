@@ -32,11 +32,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var onboardingWindow: NSWindow?
     private var observedPollInterval: Double = 0
     private var statusItem: StatusItemController?
+    private var didOfferHelperReinstall = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let isFirstLaunch = !SettingsStore.hasSavedSettings
         store.saveNow()
 
+        // Deferred so the alert never blocks launch.
+        helper.onNeedsReinstall = { [weak self] in
+            Task { @MainActor in self?.offerHelperReinstall() }
+        }
         helper.refresh()
         statusItem = StatusItemController { [weak self] in
             guard let self else { return AnyView(EmptyView()) }
@@ -89,6 +94,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         engine.tick(monitor: monitor, settings: settings, helper: helper)
         notifier.check(settings: settings, monitor: monitor)
         logger.log(settings: settings.logging, monitor: monitor)
+    }
+
+    /// After an app update the installed helper may be older, or signed by a different
+    /// team, and would refuse the app. Offers to reinstall it once per launch.
+    private func offerHelperReinstall() {
+        guard !didOfferHelperReinstall else { return }
+        didOfferHelperReinstall = true
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = "Update the fan control helper?"
+        alert.informativeText = "This version of Tuuli needs a newer fan control helper. Until it's updated, macOS stays in charge of the fans. It needs your password once."
+        alert.addButton(withTitle: "Update Helper…")
+        alert.addButton(withTitle: "Later")
+        if alert.runModal() == .alertFirstButtonReturn {
+            helper.install()
+        }
     }
 
     /// Re-evaluates the fans immediately after a change from the menu bar.

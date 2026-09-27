@@ -3,8 +3,9 @@ import Foundation
 public enum HelperConstants {
     public static let label = "com.gabrielepartiti.tuuli.helper"
     public static let appBundleID = "com.gabrielepartiti.tuuli"
-    /// Bumped whenever the helper's behavior changes, so the app can offer an update.
-    public static let version = "1"
+    /// Bumped whenever the helper's behavior or signing changes, so the app can offer an
+    /// update. 2: signed with the Developer ID team.
+    public static let version = "2"
     public static let installedBinary = "/Library/PrivilegedHelperTools/\(label)"
     public static let installedPlist = "/Library/LaunchDaemons/\(label).plist"
     /// Seconds without contact from the app before fans go back to the system.

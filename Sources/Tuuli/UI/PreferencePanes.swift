@@ -107,7 +107,7 @@ struct GeneralView: View {
                     switch helper.status {
                     case .notInstalled, .unreachable:
                         Button("Install Helper…") { helper.install() }
-                    case .outdated:
+                    case .outdated, .incompatible:
                         Button("Update Helper…") { helper.install() }
                     case .ready, .checking:
                         EmptyView()
@@ -187,6 +187,7 @@ struct GeneralView: View {
         case .checking: "Checking…"
         case .ready: "Running"
         case .outdated(let version): "Outdated (v\(version))"
+        case .incompatible: "Needs reinstalling"
         case .unreachable: "Installed, not responding"
         }
     }
