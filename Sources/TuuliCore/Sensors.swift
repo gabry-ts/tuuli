@@ -49,7 +49,17 @@ public enum SensorCatalog {
     /// Prefixes whose `flt` values are not temperatures (flow rates, offsets, calibration).
     private static let excludedPrefixes = ["Tf", "Tz", "TR"]
 
-    private static let prefixes: [(String, SensorCategory)] = [
+    #if arch(x86_64)
+    /// Intel Macs (untested) report most temperatures as `sp78`, with CPU and GPU keys
+    /// under `TC` and `TG`.
+    public static let temperatureTypes: Set<String> = ["flt ", "sp78"]
+    private static let archPrefixes: [(String, SensorCategory)] = [("TC", .cpuPerformance), ("TG", .gpu)]
+    #else
+    public static let temperatureTypes: Set<String> = ["flt "]
+    private static let archPrefixes: [(String, SensorCategory)] = []
+    #endif
+
+    private static let prefixes: [(String, SensorCategory)] = archPrefixes + [
         ("Tp", .cpuPerformance),
         ("Te", .cpuEfficiency),
         ("Tg", .gpu),
@@ -165,11 +175,11 @@ public struct SensorSnapshot: Sendable {
 }
 
 extension SMC {
-    /// Discovers temperature sensors, reading every `T…` key of type `flt `.
+    /// Discovers temperature sensors, reading every `T…` key of a temperature type.
     public func discoverSensors() -> [Sensor] {
         let samples: [(key: String, value: Double)] = allKeys().compactMap { key in
             guard SensorCatalog.category(forKey: key) != nil,
-                  info(key)?.type == "flt ",
+                  let type = info(key)?.type, SensorCatalog.temperatureTypes.contains(type),
                   let value = read(key) else { return nil }
             return (key, value)
         }
