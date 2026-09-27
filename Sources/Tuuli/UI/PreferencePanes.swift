@@ -167,6 +167,10 @@ struct GeneralView: View {
                 }
             } header: {
                 Text("Updates")
+            } footer: {
+                Button("Enjoying Tuuli? Buy me a coffee") { NSWorkspace.shared.open(Links.buyMeACoffee) }
+                    .buttonStyle(.link)
+                    .font(.caption)
             }
         }
         .formStyle(.grouped)

@@ -52,6 +52,7 @@ struct MenuContent: View {
             Menu {
                 Button("Check for Updates…") { updater.checkForUpdates() }
                     .disabled(!updater.canCheckForUpdates)
+                Button("Buy Me a Coffee…") { NSWorkspace.shared.open(Links.buyMeACoffee) }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
