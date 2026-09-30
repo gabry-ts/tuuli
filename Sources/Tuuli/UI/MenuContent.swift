@@ -1,4 +1,5 @@
 import Charts
+import PartitiUI
 import SwiftUI
 import TuuliCore
 
@@ -13,112 +14,98 @@ struct MenuContent: View {
     /// Applies fan changes right away instead of waiting for the next sample.
     let applyNow: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         let popover = store.settings.popover
-        VStack(alignment: .leading, spacing: 10) {
-            header
+        PopoverScaffold {
+            PopoverHeader(icon: Image(nsImage: NSApp.applicationIconImage), name: "Tuuli") {
+                HeaderStatus(monitor.isOnBattery ? "Battery" : "Power Adapter",
+                             symbol: monitor.isOnBattery ? "battery.75percent" : "bolt.fill")
+            }
+        } content: {
             ForEach(popover.sections.filter(\.isEnabled), id: \.section) { entry in
                 sectionView(entry.section, popover: popover)
             }
-            footer
+        } footer: {
+            PopoverFooter(
+                onSettings: openSettings,
+                onCheckForUpdates: { updater.checkForUpdates() },
+                onBuyMeACoffee: { NSWorkspace.shared.open(Links.buyMeACoffee) })
         }
-        .padding(12)
-        .frame(width: 300)
-        .background(AirBackground())
-    }
-
-    private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "fan.fill")
-                .foregroundStyle(Theme.sky.gradient)
-            Text("Tuuli")
-                .font(.system(.headline, design: .rounded))
-            Spacer()
-            Label(monitor.isOnBattery ? "Battery" : "Power Adapter",
-                  systemImage: monitor.isOnBattery ? "battery.75percent" : "bolt.fill")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 4)
-    }
-
-    private var footer: some View {
-        HStack {
-            Button(action: openSettings) {
-                Label("Settings", systemImage: "gearshape")
-            }
-            .keyboardShortcut(",")
-            Spacer()
-            Menu {
-                Button("Check for Updates…") { updater.checkForUpdates() }
-                    .disabled(!updater.canCheckForUpdates)
-                Button("Buy Me a Coffee…") { NSWorkspace.shared.open(Links.buyMeACoffee) }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-            }
-            .menuStyle(.button)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            Button { NSApplication.shared.terminate(nil) } label: {
-                Label("Quit", systemImage: "power")
-            }
-            .keyboardShortcut("q")
-        }
-        .buttonStyle(.borderless)
-        .foregroundStyle(.secondary)
-        .font(.callout)
-        .padding(.horizontal, 4)
-        .padding(.top, 2)
+        .puiAccent(.tuuli)
     }
 
     @ViewBuilder
     private func sectionView(_ section: PopoverSection, popover: PopoverSettings) -> some View {
         let unit = store.settings.unit
+        let ink = Ink(colorScheme)
         switch section {
         case .temperatures:
             if !popover.temperatureSensors.isEmpty {
-                Card(padding: 12) {
-                    VStack(spacing: 8) {
+                PartitiUI.Card {
+                    VStack(alignment: .leading, spacing: PUI.Space.xs) {
+                        SectionHeader("Temperatures")
                         ForEach(Array(popover.temperatureSensors.enumerated()), id: \.offset) { _, sensor in
-                            HStack(spacing: 8) {
+                            HStack(spacing: PUI.Space.m) {
                                 Circle()
-                                    .fill(Theme.heat(monitor.value(sensor)))
+                                    .fill(Heat.color(monitor.value(sensor)))
                                     .frame(width: 7, height: 7)
+                                    .frame(width: 16)
                                 Text(monitor.name(of: sensor))
-                                Spacer()
-                                TemperatureText(celsius: monitor.value(sensor), unit: unit)
-                                    .foregroundStyle(.secondary)
+                                    .font(PUI.Font.body)
+                                    .foregroundStyle(ink.primary)
+                                    .lineLimit(1)
+                                Spacer(minLength: PUI.Space.m)
+                                Text(verbatim: unit.short(monitor.value(sensor)))
+                                    .font(PUI.Font.body)
+                                    .monospacedDigit()
+                                    .foregroundStyle(ink.secondary)
                             }
+                            .frame(height: PUI.Control.small)
                         }
                     }
                 }
             }
         case .chart:
-            Card(padding: 12) {
+            PartitiUI.Card {
                 hero(sensor: popover.chartSensor, minutes: popover.chartMinutes)
             }
         case .fans:
-            Card(padding: 12) {
-                VStack(spacing: 10) {
+            PartitiUI.Card {
+                VStack(alignment: .leading, spacing: PUI.Space.xs) {
+                    SectionHeader("Fan speeds") {
+                        if !monitor.fans.isEmpty {
+                            Text(monitor.fans.count == 1 ? "1 fan" : "\(monitor.fans.count) fans")
+                        }
+                    }
                     if monitor.fans.isEmpty {
-                        Text("No fans on this Mac").foregroundStyle(.secondary)
+                        Text("No fans on this Mac")
+                            .font(PUI.Font.body)
+                            .foregroundStyle(ink.secondary)
+                            .frame(height: PUI.Control.small)
                     }
                     ForEach(monitor.fans) { fan in
-                        HStack(spacing: 10) {
-                            FanGlyph(rpm: fan.current, size: 15)
+                        HStack(spacing: PUI.Space.m) {
+                            RowSymbol("fan.fill", color: fan.current > 0 ? AppAccent.tuuli.legible(colorScheme) : nil)
                             Text(fan.name)
-                                .frame(width: 44, alignment: .leading)
-                            FanBar(fan: fan)
+                                .font(PUI.Font.body)
+                                .foregroundStyle(ink.primary)
+                                .lineLimit(1)
+                                .frame(width: 72, alignment: .leading)
+                            Meter(fan.current > 0 ? max(fan.percent, 3) / 100 : 0, height: 4)
                             Text(verbatim: fan.rpmText)
+                                .font(PUI.Font.body)
                                 .monospacedDigit()
-                                .foregroundStyle(.secondary)
-                                .frame(width: 72, alignment: .trailing)
+                                .foregroundStyle(ink.secondary)
+                                .frame(width: 70, alignment: .trailing)
                         }
+                        .frame(height: PUI.Control.small)
                     }
                 }
             }
         case .modePicker:
-            Card(padding: 12) {
+            PartitiUI.Card {
                 modeSection
             }
         }
@@ -126,21 +113,16 @@ struct MenuContent: View {
 
     private func hero(sensor: String, minutes: Int) -> some View {
         let value = monitor.value(sensor)
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
-                TemperatureText(celsius: value, unit: store.settings.unit, compact: true)
-                    .font(.system(size: 34, weight: .light, design: .rounded))
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(Theme.mood(value))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.heat(value))
-                    Text(monitor.name(of: sensor))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        return VStack(alignment: .leading, spacing: PUI.Space.m) {
+            SectionHeader(monitor.name(of: sensor)) { Text("last \(minutes) min") }
+            HStack(alignment: .bottom, spacing: PUI.Space.l) {
+                VStack(alignment: .leading, spacing: PUI.Space.xxs) {
+                    BigNumber(store.settings.unit.short(value))
+                    Badge(Heat.mood(value), color: value == nil ? nil : Heat.color(value))
                 }
-                Spacer()
+                sparkline(sensor: sensor, minutes: minutes)
+                    .padding(.bottom, PUI.Space.xxs)
             }
-            sparkline(sensor: sensor, minutes: minutes)
         }
     }
 
@@ -148,29 +130,34 @@ struct MenuContent: View {
 
     private var activeMode: Mode { store.settings.activeMode }
 
-    @ViewBuilder
     private var modeSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
+        let ink = Ink(colorScheme)
+        return VStack(alignment: .leading, spacing: PUI.Space.m) {
+            SectionHeader("Mode") {
+                if helper.isReady { Text(holdingText).monospacedDigit() }
+            }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: PUI.Space.s), GridItem(.flexible(), spacing: PUI.Space.s)],
+                      spacing: PUI.Space.s) {
                 ForEach(store.settings.modes) { mode in
-                    ModeChip(mode: mode, isActive: mode.id == store.settings.activeModeID) {
+                    Chip(mode.name, symbol: mode.kind.icon, active: mode.id == store.settings.activeModeID) {
                         store.settings.activeModeID = mode.id
                         applyNow()
                     }
                 }
             }
             .disabled(!helper.isReady)
+            .opacity(helper.isReady ? 1 : 0.5)
 
             if activeMode.kind == .manual {
-                HStack(spacing: 8) {
-                    Image(systemName: "wind")
-                        .foregroundStyle(.secondary)
-                    Slider(value: manualPercent, in: 0...100, step: 5) { editing in
-                        if !editing { applyNow() }
-                    }
-                    .tint(Theme.sky)
+                HStack(spacing: PUI.Space.m) {
+                    RowSymbol("wind")
+                    PUISlider(value: manualPercent, in: 0...100)
+                        // The fans follow once the drag ends, not on every step of it.
+                        .simultaneousGesture(DragGesture(minimumDistance: 0).onEnded { _ in applyNow() })
                     Text(verbatim: "\(Int(activeMode.adapter.manualPercent))%")
+                        .font(PUI.Font.body)
                         .monospacedDigit()
+                        .foregroundStyle(ink.secondary)
                         .frame(width: 40, alignment: .trailing)
                 }
                 .disabled(!helper.isReady)
@@ -178,13 +165,13 @@ struct MenuContent: View {
 
             if !helper.isReady {
                 HStack {
-                    caption("Fan control needs the helper.")
+                    Text("Fan control needs the helper.")
+                        .font(PUI.Font.caption)
+                        .foregroundStyle(ink.secondary)
                     Spacer()
                     Button("Set Up…", action: openSettings)
-                        .controlSize(.small)
+                        .buttonStyle(SecondaryButtonStyle(height: PUI.Control.small))
                 }
-            } else {
-                caption(holdingText)
             }
         }
     }
@@ -198,7 +185,7 @@ struct MenuContent: View {
             get: { activeMode.adapter.manualPercent },
             set: { value in
                 if let index = store.settings.index(of: activeMode.id) {
-                    store.settings.modes[index].adapter.manualPercent = value
+                    store.settings.modes[index].adapter.manualPercent = (value / 5).rounded() * 5
                 }
             }
         )
@@ -214,25 +201,30 @@ struct MenuContent: View {
         }
         let low = (points.map(\.1).min() ?? 0) - 2
         let high = (points.map(\.1).max() ?? 1) + 2
-        let color = Theme.heat(monitor.value(sensor))
-        return Chart(points, id: \.0) { point in
-            AreaMark(x: .value("Time", point.0), yStart: .value("Low", low), yEnd: .value("Temperature", point.1))
-                .interpolationMethod(.catmullRom)
-                .foregroundStyle(.linearGradient(colors: [color.opacity(0.3), color.opacity(0.02)], startPoint: .top, endPoint: .bottom))
-            LineMark(x: .value("Time", point.0), y: .value("Temperature", point.1))
-                .interpolationMethod(.catmullRom)
-                .foregroundStyle(color)
-                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+        let color = AppAccent.tuuli.color
+        return Chart {
+            ForEach(points, id: \.0) { point in
+                AreaMark(x: .value("Time", point.0), yStart: .value("Low", low), yEnd: .value("Temperature", point.1))
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(.linearGradient(colors: [color.opacity(0.28), color.opacity(0)], startPoint: .top, endPoint: .bottom))
+                LineMark(x: .value("Time", point.0), y: .value("Temperature", point.1))
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(color)
+                    .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
+            }
+            if let last = points.last {
+                PointMark(x: .value("Time", last.0), y: .value("Temperature", last.1))
+                    .symbol {
+                        Circle()
+                            .fill(color)
+                            .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+                            .frame(width: 6, height: 6)
+                    }
+            }
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .chartYScale(domain: low...max(high, low + 1))
         .frame(height: 48)
-    }
-
-    private func caption(_ text: String) -> some View {
-        Text(text)
-            .font(.caption)
-            .foregroundStyle(.secondary)
     }
 }

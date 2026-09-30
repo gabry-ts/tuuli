@@ -352,8 +352,9 @@ private struct MenuBarPreview: View {
             .frame(height: 30)
             .background(.primary.opacity(0.06), in: .rect(cornerRadius: 10))
             MenuContent(openSettings: {}, applyNow: {})
-                .clipShape(.rect(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.separator))
+                .background(.regularMaterial)
+                .clipShape(.rect(cornerRadius: 24))
+                .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(.separator))
                 .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
                 .allowsHitTesting(false)
         }

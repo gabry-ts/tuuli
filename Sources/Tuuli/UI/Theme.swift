@@ -248,12 +248,6 @@ struct FanBar: View {
     }
 }
 
-extension FanStatus {
-    var rpmText: String {
-        current > 0 ? "\(Int(current.rounded())) rpm" : "Resting"
-    }
-}
-
 /// A selectable pill for a mode, used in the popover and onboarding.
 struct ModeChip: View {
     let mode: Mode
