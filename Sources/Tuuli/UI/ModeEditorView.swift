@@ -164,13 +164,10 @@ struct FanConfigEditor: View {
         case .curve:
             Card {
                 VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        CardTitle(title: "Curve", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                        Spacer()
-                        SensorPicker(title: "Follows", selection: $config.curveSensor)
-                            .fixedSize()
-                    }
-                    CurveEditor(points: $config.curve, current: monitor.value(config.curveSensor))
+                    CurveEditor(points: $config.curve, sensor: $config.curveSensor, current: monitor.value(config.curveSensor))
+                    Text("Drag the points to shape the curve.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             behaviorCard(showsHysteresis: false)
@@ -311,128 +308,6 @@ private struct RuleSentence: View {
         .padding(14)
         .background(.primary.opacity(0.04), in: .rect(cornerRadius: 12))
         .opacity(rule.isEnabled ? 1 : 0.55)
-    }
-}
-
-/// The curve as a chart whose points can be dragged, with fine-tuning rows below.
-struct CurveEditor: View {
-    @Environment(SettingsStore.self) private var store
-    @Binding var points: [CurvePoint]
-    let current: Double?
-    @State private var draggingID: UUID?
-    @State private var showsValues = false
-
-    var body: some View {
-        let unit = store.settings.unit
-        let sorted = points.sorted { $0.temperature < $1.temperature }
-        VStack(alignment: .leading, spacing: 12) {
-            Chart {
-                ForEach(sorted) { point in
-                    AreaMark(x: .value("Temperature", unit.convert(point.temperature)), y: .value("Speed", point.percent))
-                        .foregroundStyle(.linearGradient(colors: [Theme.sky.opacity(0.28), Theme.sky.opacity(0.02)], startPoint: .top, endPoint: .bottom))
-                    LineMark(x: .value("Temperature", unit.convert(point.temperature)), y: .value("Speed", point.percent))
-                        .foregroundStyle(Theme.sky)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                }
-                ForEach(sorted) { point in
-                    PointMark(x: .value("Temperature", unit.convert(point.temperature)), y: .value("Speed", point.percent))
-                        .symbol {
-                            Circle()
-                                .fill(.white)
-                                .stroke(Theme.sky, lineWidth: 2.5)
-                                .frame(width: draggingID == point.id ? 18 : 13)
-                                .shadow(color: Theme.sky.opacity(0.4), radius: draggingID == point.id ? 6 : 0)
-                        }
-                }
-                if let current {
-                    RuleMark(x: .value("Now", unit.convert(current)))
-                        .foregroundStyle(Theme.heat(current).opacity(0.7))
-                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
-                        .annotation(position: .top, alignment: .center) {
-                            Text(verbatim: "Now \(unit.short(current))")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(Theme.heat(current))
-                        }
-                }
-            }
-            .chartYScale(domain: 0...100)
-            .chartXScale(domain: unit.convert(20)...unit.convert(110))
-            .chartXAxisLabel(unit.symbol)
-            .chartYAxisLabel("%")
-            .chartOverlay { proxy in
-                GeometryReader { geometry in
-                    Rectangle()
-                        .fill(.clear)
-                        .contentShape(.rect)
-                        .gesture(dragGesture(proxy: proxy, geometry: geometry, unit: unit))
-                }
-            }
-            .frame(height: 240)
-
-            HStack {
-                Text("Drag the points to shape the curve.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    let last = sorted.last
-                    points.append(CurvePoint(temperature: min((last?.temperature ?? 60) + 5, 110), percent: min((last?.percent ?? 50) + 10, 100)))
-                } label: {
-                    Label("Add Point", systemImage: "plus.circle.fill")
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(Theme.sky)
-                Toggle("Values", isOn: $showsValues.animation(.snappy))
-                    .toggleStyle(.button)
-                    .controlSize(.small)
-            }
-
-            if showsValues {
-                ForEach($points) { $point in
-                    HStack(spacing: 16) {
-                        TemperatureField(title: "At", celsius: $point.temperature, unit: unit, range: 20...110)
-                            .frame(maxWidth: 200)
-                        PercentSlider(title: "", percent: $point.percent)
-                        Button(role: .destructive) {
-                            points.removeAll { $0.id == point.id }
-                        } label: {
-                            Image(systemName: "minus.circle")
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(points.count <= 2)
-                    }
-                }
-            }
-        }
-    }
-
-    private func dragGesture(proxy: ChartProxy, geometry: GeometryProxy, unit: TemperatureUnit) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                guard let plot = proxy.plotFrame else { return }
-                let origin = geometry[plot].origin
-                let location = CGPoint(x: value.location.x - origin.x, y: value.location.y - origin.y)
-                if draggingID == nil {
-                    draggingID = nearestPoint(to: location, proxy: proxy, unit: unit)
-                }
-                guard let id = draggingID, let index = points.firstIndex(where: { $0.id == id }),
-                      let x: Double = proxy.value(atX: location.x),
-                      let y: Double = proxy.value(atY: location.y) else { return }
-                let celsius = unit == .celsius ? x : (x - 32) * 5 / 9
-                points[index].temperature = min(max(celsius, 20), 110).rounded()
-                points[index].percent = (min(max(y, 0), 100) / 5).rounded() * 5
-            }
-            .onEnded { _ in draggingID = nil }
-    }
-
-    private func nearestPoint(to location: CGPoint, proxy: ChartProxy, unit: TemperatureUnit) -> UUID? {
-        let candidates = points.compactMap { point -> (UUID, CGFloat)? in
-            guard let x = proxy.position(forX: unit.convert(point.temperature)),
-                  let y = proxy.position(forY: point.percent) else { return nil }
-            return (point.id, hypot(x - location.x, y - location.y))
-        }
-        guard let nearest = candidates.min(by: { $0.1 < $1.1 }), nearest.1 < 24 else { return nil }
-        return nearest.0
     }
 }
 
