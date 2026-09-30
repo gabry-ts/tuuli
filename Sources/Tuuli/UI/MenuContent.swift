@@ -43,7 +43,7 @@ struct MenuContent: View {
         switch section {
         case .temperatures:
             if !popover.temperatureSensors.isEmpty {
-                PartitiUI.Card {
+                Card {
                     VStack(alignment: .leading, spacing: PUI.Space.xs) {
                         SectionHeader("Temperatures")
                         ForEach(Array(popover.temperatureSensors.enumerated()), id: \.offset) { _, sensor in
@@ -68,11 +68,11 @@ struct MenuContent: View {
                 }
             }
         case .chart:
-            PartitiUI.Card {
+            Card {
                 hero(sensor: popover.chartSensor, minutes: popover.chartMinutes)
             }
         case .fans:
-            PartitiUI.Card {
+            Card {
                 VStack(alignment: .leading, spacing: PUI.Space.xs) {
                     SectionHeader("Fan speeds") {
                         if !monitor.fans.isEmpty {
@@ -105,7 +105,7 @@ struct MenuContent: View {
                 }
             }
         case .modePicker:
-            PartitiUI.Card {
+            Card {
                 modeSection
             }
         }
