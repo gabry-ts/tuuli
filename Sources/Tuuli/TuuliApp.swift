@@ -1,3 +1,4 @@
+import PartitiUI
 import SwiftUI
 import TuuliCore
 
@@ -153,18 +154,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .environment(helper)
             .environment(updater)
         let controller = NSHostingController(rootView: view)
-        controller.sceneBridgingOptions = [.toolbars]
         let window = NSWindow(contentViewController: controller)
         window.title = "Tuuli"
         window.isOpaque = false
         window.backgroundColor = .clear
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        // One continuous surface: the sky runs under a clear title bar, and each page
-        // carries its own large title.
+        // Partiti UI's sidebar runs under a clear title bar, past the traffic lights.
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        window.setContentSize(NSSize(width: 1040, height: 680))
-        window.minSize = NSSize(width: 920, height: 560)
+        window.setContentSize(PUI.Window.dashboard)
+        window.minSize = PUI.Window.dashboardMin
         window.center()
         window.isReleasedWhenClosed = false
         window.delegate = self

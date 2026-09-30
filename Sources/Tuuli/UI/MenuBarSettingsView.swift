@@ -1,3 +1,4 @@
+import PartitiUI
 import SwiftUI
 import TuuliCore
 import UniformTypeIdentifiers
@@ -10,35 +11,24 @@ struct MenuBarSettingsView: View {
     @State private var draggingSection: Int?
     @State private var draggingSensor: Int?
     @State private var editingItem: Int?
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            AirPage(title: "Menu Bar", subtitle: "What sits in the menu bar, and what opens under it.", drawsBackground: false) {
-                Card {
-                    VStack(alignment: .leading, spacing: 14) {
-                        CardTitle(title: "Status Item", systemImage: "menubar.rectangle")
-                        statusStrip
-                        Text("Drag to reorder. Click a reading to change or remove it.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+            TuuliPane(.menuBar, subtitle: "What sits in the menu bar, and what opens under it.") {
+                SettingsGroup("Status Item", footer: "Drag to reorder. Click a reading to change or remove it.") {
+                    statusStrip
+                        .padding(PUI.Space.l)
                 }
 
-                Card {
-                    VStack(alignment: .leading, spacing: 14) {
-                        CardTitle(title: "Popover", systemImage: "rectangle.stack")
-                        popoverSections
-                        Text("Drag to reorder. Switch off what you don't need.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                SettingsGroup("Popover", footer: "Drag to reorder. Switch off what you don't need.") {
+                    popoverSections
                 }
             }
 
             MenuBarPreview()
-                .frame(width: 320)
+                .frame(width: PUI.Popover.regular + 2 * PUI.Space.xl)
         }
-        .background(AirBackground())
     }
 
     // MARK: Status item
@@ -57,10 +47,10 @@ struct MenuBarSettingsView: View {
             }
             addItemMenu
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, PUI.Space.m + 2)
+        .padding(.vertical, PUI.Space.s)
         .frame(maxWidth: .infinity, minHeight: 36)
-        .background(.primary.opacity(0.05), in: .rect(cornerRadius: 10))
+        .background(RoundedRectangle(cornerRadius: PUI.Radius.group, style: .continuous).fill(Ink(colorScheme).fill))
         .animation(.snappy, value: items)
     }
 
@@ -85,23 +75,29 @@ struct MenuBarSettingsView: View {
 
     @ViewBuilder
     private func chipEditor(index: Int, item: StatusElement) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: PUI.Space.l) {
             if case .temperature(let sensor) = item {
-                SensorPicker(title: "Sensor", selection: Binding(
-                    get: { sensor },
-                    set: { store.settings.menuBar.items[index] = .temperature($0) }
-                ))
+                HStack(spacing: PUI.Space.m) {
+                    Text("Sensor")
+                        .font(PUI.Font.body)
+                    SensorField(title: "Sensor", selection: Binding(
+                        get: { sensor },
+                        set: { store.settings.menuBar.items[index] = .temperature($0) }
+                    ))
+                }
             } else {
                 Text(item == .icon ? "Fan icon" : "Fastest fan speed")
+                    .font(PUI.Font.body)
                     .foregroundStyle(.secondary)
             }
             Button("Remove", role: .destructive) {
                 editingItem = nil
                 store.settings.menuBar.items.remove(at: index)
             }
+            .buttonStyle(SecondaryButtonStyle(height: PUI.Control.small))
         }
-        .padding(14)
-        .frame(minWidth: 240)
+        .padding(PUI.Space.l)
+        .frame(minWidth: 240, alignment: .leading)
     }
 
     private func editingBinding(_ index: Int) -> Binding<Bool> {
@@ -122,8 +118,9 @@ struct MenuBarSettingsView: View {
 
     private var popoverSections: some View {
         let sections = store.settings.popover.sections
-        return VStack(spacing: 6) {
+        return VStack(spacing: 0) {
             ForEach(Array(sections.enumerated()), id: \.element.section) { index, entry in
+                if index > 0 { Hairline().padding(.horizontal, PUI.Space.l) }
                 sectionCard(index: index, entry: entry)
                     .reorderable(index: index, items: sectionsBinding, dragging: $draggingSection)
             }
@@ -133,29 +130,27 @@ struct MenuBarSettingsView: View {
 
     private func sectionCard(index: Int, entry: PopoverEntry) -> some View {
         @Bindable var store = store
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
+        let ink = Ink(colorScheme)
+        return VStack(alignment: .leading, spacing: PUI.Space.m) {
+            HStack(spacing: PUI.Space.m + 2) {
                 Image(systemName: "line.3.horizontal")
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(ink.tertiary)
                 Image(systemName: entry.section.icon)
-                    .foregroundStyle(entry.isEnabled ? AnyShapeStyle(Theme.sky) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(entry.isEnabled ? AppAccent.tuuli.legible(colorScheme) : ink.secondary)
                     .frame(width: 20)
                 Text(entry.section.title)
-                    .foregroundStyle(entry.isEnabled ? .primary : .secondary)
+                    .font(PUI.Font.body)
+                    .foregroundStyle(entry.isEnabled ? ink.primary : ink.secondary)
                 Spacer()
                 Toggle(entry.section.title, isOn: $store.settings.popover.sections[index].isEnabled)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                    .tint(Theme.sky)
+                    .toggleStyle(PUISwitchStyle(mini: true, showsLabel: false))
             }
             if entry.isEnabled {
                 sectionOptions(entry.section)
                     .padding(.leading, 50)
             }
         }
-        .padding(12)
-        .background(.primary.opacity(entry.isEnabled ? 0.05 : 0.025), in: .rect(cornerRadius: 12))
+        .padding(PUI.Space.l)
         .opacity(draggingSection == index ? 0.5 : 1)
         .contentShape(.rect)
     }
@@ -167,16 +162,10 @@ struct MenuBarSettingsView: View {
         case .temperatures:
             sensorChips
         case .chart:
-            VStack(alignment: .leading, spacing: 8) {
-                SensorPicker(title: "Sensor", selection: $store.settings.popover.chartSensor)
-                    .fixedSize()
-                Picker("Window", selection: $store.settings.popover.chartMinutes) {
-                    Text("5 min").tag(5)
-                    Text("15 min").tag(15)
-                    Text("60 min").tag(60)
-                }
-                .pickerStyle(.segmented)
-                .fixedSize()
+            let windows: [(value: Int, title: LocalizedStringKey)] = [(5, "5 min"), (15, "15 min"), (60, "60 min")]
+            HStack(spacing: PUI.Space.m) {
+                SensorField(title: "Sensor", selection: $store.settings.popover.chartSensor)
+                SegmentedPill(windows, selection: $store.settings.popover.chartMinutes)
             }
         case .fans, .modePicker:
             EmptyView()
@@ -229,10 +218,10 @@ private struct StatusChip: View {
 
     var body: some View {
         content
-            .font(.system(size: 13, weight: .medium).monospacedDigit())
-            .padding(.horizontal, 8)
+            .font(PUI.Font.menuBar)
+            .padding(.horizontal, PUI.Space.m)
             .padding(.vertical, 3)
-            .background(isHovering ? AnyShapeStyle(.fill.secondary) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 5))
+            .puiHoverHighlight(isHovering, radius: 5)
             .opacity(isDragging ? 0.4 : 1)
             .contentShape(.rect)
             .onHover { isHovering = $0 }
@@ -270,13 +259,15 @@ private struct SensorRow: View {
     @State private var isHovering = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: PUI.Space.m) {
             Image(systemName: "line.3.horizontal")
-                .font(.caption)
+                .font(PUI.Font.caption)
                 .foregroundStyle(.tertiary)
             Text(monitor.name(of: sensor))
+                .font(PUI.Font.body)
             Spacer()
             Text(store.settings.unit.format(monitor.value(sensor)))
+                .font(PUI.Font.body)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
             Button(action: remove) {
@@ -287,9 +278,9 @@ private struct SensorRow: View {
             .opacity(isHovering ? 1 : 0)
             .help("Remove")
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, PUI.Space.m)
         .padding(.vertical, 5)
-        .background(isHovering ? AnyShapeStyle(.fill.quaternary) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 6))
+        .puiHoverHighlight(isHovering, radius: 6)
         .opacity(isDragging ? 0.4 : 1)
         .contentShape(.rect)
         .onHover { isHovering = $0 }
@@ -336,29 +327,31 @@ struct SensorMenu: View {
 private struct MenuBarPreview: View {
     @Environment(SettingsStore.self) private var store
     @Environment(Monitor.self) private var monitor
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 6) {
-            CardTitle(title: "Live Preview", systemImage: "eye")
+        let ink = Ink(colorScheme)
+        VStack(alignment: .trailing, spacing: PUI.Space.s) {
+            SectionHeader("Live Preview")
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack {
                 Spacer()
                 MenuBarLabel(store: store, monitor: monitor)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(.fill.secondary, in: .rect(cornerRadius: 5))
+                    .padding(.horizontal, PUI.Space.s + 1)
+                    .frame(height: PUI.Control.small)
+                    .background(Capsule().fill(ink.strongFill))
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, PUI.Space.m)
             .frame(height: 30)
-            .background(.primary.opacity(0.06), in: .rect(cornerRadius: 10))
+            .background(RoundedRectangle(cornerRadius: PUI.Radius.group, style: .continuous).fill(ink.fill))
             MenuContent(openSettings: {}, applyNow: {})
                 .background(.regularMaterial)
-                .clipShape(.rect(cornerRadius: 24))
-                .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(.separator))
+                .clipShape(.rect(cornerRadius: PUI.Radius.popover))
+                .overlay(RoundedRectangle(cornerRadius: PUI.Radius.popover).strokeBorder(ink.hairline))
                 .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
                 .allowsHitTesting(false)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, PUI.Space.xl)
         .padding(.top, 88)
     }
 }

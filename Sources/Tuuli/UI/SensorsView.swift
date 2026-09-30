@@ -1,47 +1,46 @@
+import PartitiUI
 import SwiftUI
 import TuuliCore
 
 struct SensorsView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(Monitor.self) private var monitor
+    @Environment(\.colorScheme) private var colorScheme
     @State private var search = ""
     @State private var hottestFirst = false
 
     var body: some View {
         let unit = store.settings.unit
-        AirPage(title: "Sensors", subtitle: "\(monitor.sensors.count) sensors found on this Mac") {
-            Card(padding: 12) {
-                HStack(spacing: 12) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(.secondary)
-                        TextField("Search sensors", text: $search)
-                            .textFieldStyle(.plain)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(.primary.opacity(0.05), in: .rect(cornerRadius: 8))
-                    Picker("Sort", selection: $hottestFirst) {
-                        Text("By name").tag(false)
-                        Text("Hottest first").tag(true)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                    Toggle("All sensors", isOn: store.binding(\.showAllSensors))
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                        .fixedSize()
+        let ink = Ink(colorScheme)
+        let sorts: [(value: Bool, title: LocalizedStringKey)] = [(false, "By name"), (true, "Hottest first")]
+        TuuliPane(.sensors, subtitle: "\(monitor.sensors.count) sensors found on this Mac") {
+            HStack(spacing: PUI.Space.l) {
+                HStack(spacing: PUI.Space.s) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(ink.secondary)
+                    TextField("Search sensors", text: $search)
+                        .textFieldStyle(.plain)
+                        .font(PUI.Font.body)
                 }
+                .padding(.horizontal, PUI.Space.m)
+                .frame(height: PUI.Control.regular)
+                .background(RoundedRectangle(cornerRadius: PUI.Radius.row, style: .continuous).fill(ink.fill))
+                SegmentedPill(sorts, selection: $hottestFirst, height: PUI.Control.regular)
+                HStack(spacing: PUI.Space.m) {
+                    Text("All sensors")
+                        .font(PUI.Font.callout)
+                        .foregroundStyle(ink.secondary)
+                    Toggle("All sensors", isOn: store.binding(\.showAllSensors))
+                        .toggleStyle(PUISwitchStyle(showsLabel: false))
+                }
+                .fixedSize()
             }
 
             if search.isEmpty {
-                Card {
-                    VStack(alignment: .leading, spacing: 10) {
-                        CardTitle(title: "Summary", systemImage: "sparkles")
-                        ForEach(monitor.availableAggregates, id: \.self) { aggregate in
-                            SensorReadingRow(title: aggregate.title, key: nil, celsius: monitor.value(aggregate.sensorID), unit: unit)
-                        }
+                SettingsGroup("Summary") {
+                    ForEach(monitor.availableAggregates, id: \.self) { aggregate in
+                        SensorReadingRow(title: aggregate.title, key: nil, celsius: monitor.value(aggregate.sensorID), unit: unit)
                     }
                 }
             }
@@ -50,21 +49,19 @@ struct SensorsView: View {
                 ForEach(SensorCategory.allCases, id: \.self) { category in
                     let sensors = filtered(category)
                     if !sensors.isEmpty {
-                        Card {
-                            VStack(alignment: .leading, spacing: 10) {
-                                CardTitle(title: category.title, systemImage: category.icon)
-                                ForEach(sensors) { sensor in
-                                    SensorReadingRow(title: sensor.name, key: sensor.id, celsius: monitor.value(sensor.id), unit: unit)
-                                }
+                        SettingsGroup(Text("\(Image(systemName: category.icon)) \(category.title)")) {
+                            ForEach(sensors) { sensor in
+                                SensorReadingRow(title: sensor.name, key: sensor.id, celsius: monitor.value(sensor.id), unit: unit)
                             }
                         }
                     }
                 }
             } else {
                 Text("Turn on All sensors, or search, to see every reading grouped by category. Key names vary between Mac models.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 4)
+                    .font(PUI.Font.callout)
+                    .foregroundStyle(ink.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, PUI.Space.xs)
             }
         }
     }
@@ -84,29 +81,38 @@ struct SensorsView: View {
 }
 
 private struct SensorReadingRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let title: String
     let key: String?
     let celsius: Double?
     let unit: TemperatureUnit
 
     var body: some View {
-        HStack(spacing: 12) {
+        let ink = Ink(colorScheme)
+        HStack(spacing: PUI.Space.l) {
             Circle()
-                .fill(Theme.heat(celsius))
+                .fill(Heat.color(celsius))
                 .frame(width: 7, height: 7)
             Text(title)
+                .font(PUI.Font.body)
+                .foregroundStyle(ink.primary)
+                .lineLimit(1)
                 .frame(minWidth: 150, alignment: .leading)
             if let key {
                 Text(key)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.tertiary)
+                    .font(.system(size: 10).monospaced())
+                    .foregroundStyle(ink.tertiary)
                     .frame(width: 44, alignment: .leading)
             }
-            HeatBar(celsius: celsius)
-            TemperatureText(celsius: celsius, unit: unit)
-                .foregroundStyle(.secondary)
+            Meter(Heat.fraction(celsius), color: Heat.color(celsius), height: 4)
+            Text(verbatim: unit.format(celsius))
+                .font(PUI.Font.body)
+                .monospacedDigit()
+                .foregroundStyle(ink.secondary)
                 .frame(width: 72, alignment: .trailing)
         }
+        .padding(.horizontal, PUI.Space.l)
+        .frame(minHeight: 34)
     }
 }
 

@@ -1,4 +1,5 @@
 import Charts
+import PartitiUI
 import SwiftUI
 import TuuliCore
 
@@ -6,77 +7,86 @@ struct OverviewView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(Monitor.self) private var monitor
     @Environment(FanEngine.self) private var engine
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let unit = store.settings.unit
+        let ink = Ink(colorScheme)
         let main = monitor.value(Aggregate.cpuHottest.sensorID) ?? monitor.value(Aggregate.hottest.sensorID)
-        AirPage(title: "Overview", subtitle: statusLine) {
-            Card(padding: 24) {
+        let windows: [(value: Int, title: LocalizedStringKey)] = [(5, "5 min"), (15, "15 min"), (60, "60 min")]
+        TuuliPane(.overview, subtitle: statusLine) {
+            SettingsGroup("Now") {
                 HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(Theme.mood(main).uppercased())
-                            .font(.caption.weight(.semibold))
-                            .tracking(1.5)
-                            .foregroundStyle(Theme.heat(main))
-                        TemperatureText(celsius: main, unit: unit, compact: true)
-                            .font(.system(size: 64, weight: .light, design: .rounded))
+                    VStack(alignment: .leading, spacing: PUI.Space.s) {
+                        Badge(Heat.mood(main), color: main == nil ? nil : Heat.color(main))
+                        BigNumber(unit.short(main), font: .system(size: 56, weight: .light, design: .rounded).monospacedDigit())
                         Text("CPU, hottest core")
-                            .foregroundStyle(.secondary)
+                            .font(PUI.Font.callout)
+                            .foregroundStyle(ink.secondary)
                     }
                     Spacer()
-                    FanGlyph(rpm: monitor.fans.map(\.current).max() ?? 0, size: 72)
-                        .opacity(0.9)
+                    Image(systemName: "fan.fill")
+                        .font(.system(size: 64))
+                        .foregroundStyle((monitor.fans.map(\.current).max() ?? 0) > 0
+                                         ? AppAccent.tuuli.legible(colorScheme) : ink.tertiary)
                 }
+                .padding(PUI.Space.xl)
             }
 
             let rings = monitor.availableAggregates.filter { $0 != .cpuHottest && $0 != .hottest }
             if !rings.isEmpty {
-                Card(padding: 20) {
+                SettingsGroup("Temperatures") {
                     HStack {
                         ForEach(rings, id: \.self) { aggregate in
-                            HeatRing(title: aggregate.title, celsius: monitor.value(aggregate.sensorID), unit: unit)
-                                .frame(maxWidth: .infinity)
+                            let value = monitor.value(aggregate.sensorID)
+                            VStack(spacing: PUI.Space.m) {
+                                GaugeRing(Heat.fraction(value), color: Heat.color(value), lineWidth: 7, size: 84) {
+                                    Text(verbatim: unit.short(value))
+                                        .font(PUI.Font.stat)
+                                        .foregroundStyle(ink.primary)
+                                }
+                                Text(aggregate.title)
+                                    .font(PUI.Font.label)
+                                    .foregroundStyle(ink.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
                         }
                     }
+                    .padding(PUI.Space.xl)
                 }
             }
 
             if !monitor.fans.isEmpty {
-                Card {
-                    VStack(alignment: .leading, spacing: 14) {
-                        CardTitle(title: "Fans", systemImage: "wind")
-                        ForEach(monitor.fans) { fan in
-                            HStack(spacing: 12) {
-                                FanGlyph(rpm: fan.current, size: 20)
-                                Text(fan.name)
-                                    .frame(width: 50, alignment: .leading)
-                                FanBar(fan: fan)
-                                Text(verbatim: fan.rpmText)
-                                    .monospacedDigit()
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 80, alignment: .trailing)
-                            }
+                SettingsGroup("Fans") {
+                    ForEach(monitor.fans) { fan in
+                        HStack(spacing: PUI.Space.l) {
+                            RowSymbol("fan.fill", color: fan.current > 0 ? AppAccent.tuuli.legible(colorScheme) : nil)
+                            Text(fan.name)
+                                .font(PUI.Font.body)
+                                .foregroundStyle(ink.primary)
+                                .frame(width: 72, alignment: .leading)
+                            Meter(fan.current > 0 ? max(fan.percent, 3) / 100 : 0, height: 6)
+                            Text(verbatim: fan.rpmText)
+                                .font(PUI.Font.body)
+                                .monospacedDigit()
+                                .foregroundStyle(ink.secondary)
+                                .frame(width: 80, alignment: .trailing)
                         }
+                        .padding(.horizontal, PUI.Space.l)
+                        .frame(minHeight: 38)
                     }
                 }
             }
 
-            Card {
-                VStack(alignment: .leading, spacing: 14) {
+            SettingsGroup("History") {
+                VStack(alignment: .leading, spacing: PUI.Space.l) {
                     HStack {
-                        CardTitle(title: "History", systemImage: "chart.xyaxis.line")
                         Spacer()
-                        Picker("Window", selection: store.binding(\.historyMinutes)) {
-                            Text("5 min").tag(5)
-                            Text("15 min").tag(15)
-                            Text("60 min").tag(60)
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .fixedSize()
+                        SegmentedPill(windows, selection: store.binding(\.historyMinutes), height: PUI.Control.regular)
                     }
                     HistoryChart(minutes: store.settings.historyMinutes)
                 }
+                .padding(PUI.Space.l)
             }
         }
     }
@@ -99,7 +109,7 @@ struct HistoryChart: View {
     /// Soft, airy series colors.
     static let palette: [Color] = [
         Color(red: 0.95, green: 0.45, blue: 0.42),
-        Color(red: 0.36, green: 0.64, blue: 1.0),
+        AppAccent.tuuli.color,
         Color(red: 0.62, green: 0.52, blue: 0.95),
         Color(red: 0.30, green: 0.78, blue: 0.70),
         Color(red: 0.96, green: 0.70, blue: 0.30),
@@ -125,11 +135,17 @@ struct HistoryChart: View {
     var body: some View {
         let unit = store.settings.unit
         if samples.count < 3 {
-            ContentUnavailableView {
-                Label("Catching the breeze", systemImage: "wind")
-            } description: {
+            VStack(spacing: PUI.Space.s) {
+                Image(systemName: "wind")
+                    .font(.system(size: 22))
+                    .foregroundStyle(.tertiary)
+                Text("Catching the breeze")
+                    .font(PUI.Font.headline)
                 Text("History fills in as Tuuli keeps watching.")
+                    .font(PUI.Font.caption)
+                    .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity)
             .frame(height: 200)
         } else {
             chart(unit: unit)
@@ -179,7 +195,7 @@ struct HistoryChart: View {
                 }
                 .chartForegroundStyleScale(
                     domain: monitor.fans.map(\.name),
-                    range: monitor.fans.indices.map { $0 == 0 ? Theme.sky : Color(red: 0.45, green: 0.80, blue: 0.95) }
+                    range: monitor.fans.indices.map { $0 == 0 ? AppAccent.tuuli.color : Color(red: 0.45, green: 0.80, blue: 0.95) }
                 )
                 .chartXScale(domain: window)
                 .chartYAxisLabel("rpm")

@@ -1,4 +1,5 @@
 import AppKit
+import PartitiUI
 import SwiftUI
 import TuuliCore
 
@@ -28,7 +29,7 @@ enum Snapshots {
         let engine = FanEngine()
         let updater = Updater(start: false)
 
-        func both(_ name: String, title: String, selection: SettingsView.SidebarItem) {
+        func both(_ name: String, title: String, selection: SettingsView.Page) {
             for dark in [false, true] {
                 let view = SettingsView(initialSelection: selection)
                     .environment(store)
@@ -42,8 +43,10 @@ enum Snapshots {
 
         both("overview", title: "Overview", selection: .pane(.overview))
         both("mode", title: settings.modes[1].name, selection: .mode(settings.modes[1].id))
+        both("curve", title: settings.modes[2].name, selection: .mode(settings.modes[2].id))
         both("sensors", title: "Sensors", selection: .pane(.sensors))
         both("menu-bar", title: "Menu Bar", selection: .pane(.menuBar))
+        both("about", title: "About", selection: .pane(.about))
         for dark in [false, true] {
             let popover = MenuContent(openSettings: {}, applyNow: {})
                 .environment(store)
@@ -120,13 +123,13 @@ enum Snapshots {
 
     private static func snap(_ view: some View, name: String, title: String, dark: Bool, dir: URL) {
         let controller = NSHostingController(rootView: view)
-        controller.sceneBridgingOptions = [.title, .toolbars]
         let window = NSWindow(contentViewController: controller)
         window.title = title
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.toolbarStyle = .unified
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        window.setContentSize(NSSize(width: 1040, height: 680))
+        window.setContentSize(PUI.Window.dashboard)
         // Off the visible displays, so nothing flashes on screen; the window server can
         // still composite and capture a window regardless of where it's positioned.
         window.setFrameOrigin(NSPoint(x: -6000, y: -6000))
@@ -137,7 +140,7 @@ enum Snapshots {
         // actual document height so long panes aren't cropped.
         let contentHeight = tallestDocumentHeight(in: controller.view)
         if contentHeight > 0 {
-            window.setContentSize(NSSize(width: 1040, height: contentHeight + 40))
+            window.setContentSize(NSSize(width: PUI.Window.dashboard.width, height: max(contentHeight + 40, PUI.Window.dashboard.height)))
         }
         RunLoop.main.run(until: Date().addingTimeInterval(0.4))
 

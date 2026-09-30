@@ -1,3 +1,4 @@
+import PartitiUI
 import SwiftUI
 import TuuliCore
 
@@ -6,41 +7,66 @@ struct AlertsView: View {
 
     var body: some View {
         @Bindable var store = store
-        Form {
-            Section {
+        TuuliPane(.alerts, subtitle: "A notification when a sensor gets too hot.") {
+            SettingsGroup("Alerts") {
                 ForEach($store.settings.alerts) { $rule in
-                    HStack {
-                        Toggle("Enabled", isOn: $rule.isEnabled)
-                            .labelsHidden()
-                        SensorPicker(title: "Notify when", selection: $rule.sensor)
-                        Button(role: .destructive) {
-                            store.settings.alerts.removeAll { $0.id == rule.id }
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .buttonStyle(.borderless)
+                    AlertRow(rule: $rule) {
+                        store.settings.alerts.removeAll { $0.id == rule.id }
                     }
-                    TemperatureField(title: "reaches", celsius: $rule.threshold, unit: store.settings.unit)
                 }
-                Button {
-                    store.settings.alerts.append(AlertRule(sensor: Aggregate.hottest.sensorID, threshold: 90))
-                } label: {
-                    Label("Add Alert", systemImage: "plus")
+                HStack {
+                    Button {
+                        store.settings.alerts.append(AlertRule(sensor: Aggregate.hottest.sensorID, threshold: 90))
+                    } label: {
+                        Label("Add Alert", systemImage: "plus").labelStyle(TightLabelStyle())
+                    }
+                    .buttonStyle(SecondaryButtonStyle(height: PUI.Control.small))
+                    Spacer()
                 }
-            } header: {
-                Text("Alerts")
+                .padding(PUI.Space.l)
             }
 
-            Section("Delivery") {
-                Stepper(value: $store.settings.alertCooldownMinutes, in: 1...60, step: 1) {
-                    LabeledContent("Repeat at most every", value: "\(Int(store.settings.alertCooldownMinutes)) min")
+            SettingsGroup("Delivery") {
+                SettingsRow("Repeat at most every") {
+                    StepperValue("\(Int(store.settings.alertCooldownMinutes)) min",
+                                 value: $store.settings.alertCooldownMinutes, in: 1...60)
                 }
-                Toggle("Play sound", isOn: $store.settings.alertSound)
+                SettingsRow("Play sound") {
+                    Toggle("Play sound", isOn: $store.settings.alertSound)
+                        .toggleStyle(PUISwitchStyle(showsLabel: false))
+                }
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .background(AirBackground())
+    }
+}
+
+/// One alert as a sentence: "Notify when CPU Hottest reaches 95.0 °C".
+private struct AlertRow: View {
+    @Environment(SettingsStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
+    @Binding var rule: AlertRule
+    let remove: () -> Void
+
+    var body: some View {
+        let ink = Ink(colorScheme)
+        HStack(spacing: PUI.Space.m) {
+            Toggle("Enabled", isOn: $rule.isEnabled)
+                .toggleStyle(PUISwitchStyle(mini: true, showsLabel: false))
+            Text("Notify when")
+            SensorField(title: "Notify when", selection: $rule.sensor)
+            Text("reaches")
+            StepperValue(store.settings.unit.format(rule.threshold), value: $rule.threshold, in: 30...110)
+            Spacer()
+            Button(action: remove) {
+                Image(systemName: "trash")
+                    .foregroundStyle(ink.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Remove Alert")
+        }
+        .font(PUI.Font.body)
+        .foregroundStyle(ink.primary)
+        .padding(PUI.Space.l)
     }
 }
 
@@ -49,32 +75,26 @@ struct LoggingView: View {
 
     var body: some View {
         @Bindable var store = store
-        Form {
-            Section {
-                Toggle("Log to CSV", isOn: $store.settings.logging.isEnabled)
-                Stepper(value: $store.settings.logging.interval, in: 1...300, step: 1) {
-                    LabeledContent("Every", value: "\(Int(store.settings.logging.interval)) s")
+        TuuliPane(.logging, subtitle: "Every reading written to a CSV file, for later.") {
+            SettingsGroup("CSV", footer: "One file per day, named Tuuli-<date>.csv, with every sensor and fan as a column.") {
+                SettingsRow("Log to CSV") {
+                    Toggle("Log to CSV", isOn: $store.settings.logging.isEnabled)
+                        .toggleStyle(PUISwitchStyle(showsLabel: false))
                 }
-                LabeledContent("Folder") {
-                    HStack {
-                        Text(store.settings.logging.folderPath)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .foregroundStyle(.secondary)
+                SettingsRow("Every") {
+                    StepperValue("\(Int(store.settings.logging.interval)) s", value: $store.settings.logging.interval, in: 1...300)
+                }
+                SettingsRow("Folder", subtitle: store.settings.logging.folderPath) {
+                    HStack(spacing: PUI.Space.s) {
                         Button("Choose…", action: chooseFolder)
                         Button("Show") {
                             NSWorkspace.shared.open(URL(fileURLWithPath: store.settings.logging.folderPath))
                         }
                     }
+                    .buttonStyle(SecondaryButtonStyle(height: PUI.Control.small))
                 }
-            } footer: {
-                Text("One file per day, named Tuuli-<date>.csv, with every sensor and fan as a column.")
-                    .foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .background(AirBackground())
     }
 
     private func chooseFolder() {
@@ -92,94 +112,74 @@ struct LoggingView: View {
 struct GeneralView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(HelperClient.self) private var helper
-    @Environment(Updater.self) private var updater
+    @Environment(\.colorScheme) private var colorScheme
     @State private var launchAtLogin = LoginItem.status == .enabled
 
     var body: some View {
         @Bindable var store = store
-        Form {
-            Section {
-                LabeledContent("Status") {
+        let ink = Ink(colorScheme)
+        let units: [(value: TemperatureUnit, title: LocalizedStringKey)] = [(.celsius, "Celsius"), (.fahrenheit, "Fahrenheit")]
+        let intervals: [(value: Double, title: LocalizedStringKey)] = [(1, "1 s"), (2, "2 s"), (3, "3 s"), (5, "5 s")]
+        TuuliPane(.general, subtitle: "The fan control helper, startup and readings.") {
+            SettingsGroup("Fan Control Helper",
+                          footer: "Writing fan speeds needs root. The helper is a small background service that only sets fan speeds, and hands the fans back to macOS if Tuuli quits, crashes or the Mac sleeps.") {
+                SettingsRow("Status") {
                     Text(helperStatus)
-                        .foregroundStyle(helper.isReady ? .green : .secondary)
+                        .font(PUI.Font.callout)
+                        .foregroundStyle(helper.isReady ? ink.green : ink.secondary)
                 }
-                HStack {
-                    switch helper.status {
-                    case .notInstalled, .unreachable:
-                        Button("Install Helper…") { helper.install() }
-                    case .outdated, .incompatible:
-                        Button("Update Helper…") { helper.install() }
-                    case .ready, .checking:
-                        EmptyView()
-                    }
-                    if helper.status != .notInstalled {
-                        Button("Uninstall Helper…") { helper.uninstall() }
+                SettingsRow("Helper") {
+                    HStack(spacing: PUI.Space.s) {
+                        switch helper.status {
+                        case .notInstalled, .unreachable:
+                            Button("Install Helper…") { helper.install() }
+                                .buttonStyle(PrimaryButtonStyle(height: PUI.Control.small, fullWidth: false))
+                        case .outdated, .incompatible:
+                            Button("Update Helper…") { helper.install() }
+                                .buttonStyle(PrimaryButtonStyle(height: PUI.Control.small, fullWidth: false))
+                        case .ready, .checking:
+                            EmptyView()
+                        }
+                        if helper.status != .notInstalled {
+                            Button("Uninstall Helper…") { helper.uninstall() }
+                                .buttonStyle(SecondaryButtonStyle(height: PUI.Control.small))
+                        }
                     }
                 }
                 if let error = helper.lastError {
                     Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                        .font(PUI.Font.caption)
+                        .foregroundStyle(ink.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(PUI.Space.l)
                 }
-            } header: {
-                Text("Fan Control Helper")
-            } footer: {
-                Text("Writing fan speeds needs root. The helper is a small background service that only sets fan speeds, and hands the fans back to macOS if Tuuli quits, crashes or the Mac sleeps.")
-                    .foregroundStyle(.secondary)
             }
 
-            Section("General") {
-                Toggle("Launch at login", isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { _, enabled in
-                        enabled ? LoginItem.register() : LoginItem.unregister()
-                    }
+            SettingsGroup("General") {
+                SettingsRow("Launch at login") {
+                    Toggle("Launch at login", isOn: $launchAtLogin)
+                        .toggleStyle(PUISwitchStyle(showsLabel: false))
+                        .onChange(of: launchAtLogin) { _, enabled in
+                            enabled ? LoginItem.register() : LoginItem.unregister()
+                        }
+                }
                 if LoginItem.status == .requiresApproval {
-                    Button("Approve in System Settings…") { LoginItem.openSystemSettings() }
-                }
-                LabeledContent("Transparency") {
-                    HStack {
-                        Image(systemName: "square.fill")
-                            .foregroundStyle(.secondary)
-                        Slider(value: $store.settings.transparency, in: 0...0.8)
-                            .tint(Theme.sky)
-                        Image(systemName: "square.dashed")
-                            .foregroundStyle(.secondary)
+                    SettingsRow("Login item needs approval") {
+                        Button("Approve in System Settings…") { LoginItem.openSystemSettings() }
+                            .buttonStyle(SecondaryButtonStyle(height: PUI.Control.small))
                     }
-                    .frame(maxWidth: 260)
                 }
-                Picker("Temperature unit", selection: $store.settings.unit) {
-                    Text("Celsius").tag(TemperatureUnit.celsius)
-                    Text("Fahrenheit").tag(TemperatureUnit.fahrenheit)
+                SettingsRow("Temperature unit") {
+                    SegmentedPill(units, selection: $store.settings.unit, height: PUI.Control.regular)
                 }
-                Picker("Update every", selection: $store.settings.pollInterval) {
-                    Text("1 s").tag(1.0)
-                    Text("2 s").tag(2.0)
-                    Text("3 s").tag(3.0)
-                    Text("5 s").tag(5.0)
+                SettingsRow("Update every") {
+                    SegmentedPill(intervals, selection: $store.settings.pollInterval, height: PUI.Control.regular)
                 }
-            }
-
-            Section {
-                Toggle("Check for updates automatically", isOn: Bindable(updater).automaticallyChecksForUpdates)
-                LabeledContent("Version \(Self.appVersion)") {
-                    Button("Check for Updates…") { updater.checkForUpdates() }
-                        .disabled(!updater.canCheckForUpdates)
-                }
-            } header: {
-                Text("Updates")
-            } footer: {
-                Button("Enjoying Tuuli? Buy me a coffee") { NSWorkspace.shared.open(Links.buyMeACoffee) }
-                    .buttonStyle(.link)
-                    .font(.caption)
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .background(AirBackground())
         .onAppear { helper.refresh() }
     }
-
-    private static let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
 
     private var helperStatus: String {
         switch helper.status {
@@ -190,5 +190,36 @@ struct GeneralView: View {
         case .incompatible: "Needs reinstalling"
         case .unreachable: "Installed, not responding"
         }
+    }
+}
+
+/// About: Partiti UI's pane with Tuuli's icon, version, updates and a way to support it.
+struct AboutView: View {
+    @Environment(Updater.self) private var updater
+
+    private static let version: String = {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? ""
+        let build = info?["CFBundleVersion"] as? String ?? ""
+        return build.isEmpty ? "Version \(short)" : "Version \(short) (\(build))"
+    }()
+
+    var body: some View {
+        @Bindable var updater = updater
+        ScrollView {
+            AboutPane(
+                brand: PartitiBrand(accent: .tuuli,
+                                    tagline: "Temperatures and fans in your menu bar",
+                                    coffeeLine: "Tuuli is free. If it keeps your Mac cool, you can buy me a coffee.",
+                                    icon: Image(nsImage: NSApp.applicationIconImage)),
+                version: Self.version,
+                checksAutomatically: $updater.automaticallyChecksForUpdates,
+                onCheckForUpdates: { updater.checkForUpdates() },
+                onBuyMeACoffee: { NSWorkspace.shared.open(Links.buyMeACoffee) })
+                .padding(.top, 44)
+                .padding(.horizontal, PUI.Space.xxl)
+                .padding(.bottom, PUI.Space.xxl)
+        }
+        .scrollBounceBehavior(.basedOnSize)
     }
 }
