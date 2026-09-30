@@ -1,3 +1,4 @@
+import PartitiUI
 import SwiftUI
 import TuuliCore
 
@@ -33,17 +34,8 @@ enum StatusImage {
         case text(String)
     }
 
-    /// The system menu bar font, with fixed-width digits so readings don't jitter.
-    static let font: NSFont = {
-        let base = NSFont.menuBarFont(ofSize: 0)
-        let descriptor = base.fontDescriptor.addingAttributes([
-            .featureSettings: [[
-                NSFontDescriptor.FeatureKey.typeIdentifier: kNumberSpacingType,
-                NSFontDescriptor.FeatureKey.selectorIdentifier: kMonospacedNumbersSelector,
-            ]],
-        ])
-        return NSFont(descriptor: descriptor, size: base.pointSize) ?? base
-    }()
+    /// Partiti UI's menu bar type: medium, with fixed-width digits so readings don't jitter.
+    static let font = PUI.Font.menuBarNSFont()
 
     private static let glyph = NSImage(systemSymbolName: "fan.fill", accessibilityDescription: "Tuuli")?
         .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: font.pointSize, weight: .regular))
