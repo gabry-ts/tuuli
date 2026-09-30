@@ -1,4 +1,5 @@
 import Foundation
+import PartitiUI
 import TuuliCore
 
 enum TemperatureUnit: String, Codable, CaseIterable {
@@ -83,9 +84,11 @@ enum PopoverSection: String, Codable, CaseIterable {
     }
 }
 
-struct PopoverEntry: Codable, Hashable {
+struct PopoverEntry: Codable, Hashable, Identifiable {
     var section: PopoverSection
     var isEnabled = true
+
+    var id: String { section.rawValue }
 }
 
 /// What the menu bar popover shows, top to bottom in `sections` order.
@@ -114,8 +117,7 @@ struct PopoverSettings: Codable, Hashable {
         chartMinutes = try c.decodeIfPresent(Int.self, forKey: .chartMinutes) ?? d.chartMinutes
         if let sections = try c.decodeIfPresent([PopoverEntry].self, forKey: .sections) {
             // Sections added in later versions are appended, enabled.
-            let missing = PopoverSection.allCases.filter { section in !sections.contains { $0.section == section } }
-            self.sections = sections + missing.map { PopoverEntry(section: $0) }
+            self.sections = Reorder.normalized(sections, known: PopoverSection.allCases.map { PopoverEntry(section: $0) }, by: \.section)
         } else {
             let legacy = try decoder.container(keyedBy: LegacyKeys.self)
             let flags: [PopoverSection: LegacyKeys] = [
