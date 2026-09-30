@@ -7,6 +7,9 @@ import TuuliCore
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var store
     @State private var selection: Page
+    /// The mode being renamed from the sidebar, and the name typed so far.
+    @State private var renamingModeID: UUID?
+    @State private var renameText = ""
 
     enum Pane: String, CaseIterable, Hashable {
         case overview
@@ -77,11 +80,50 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        SettingsWindow(sections: sections, selection: sidebarSelection) {
+        SettingsWindow(sections: sections, selection: sidebarSelection, itemMenu: { item in
+            if let mode = store.settings.modes.first(where: { Page.mode($0.id).id == item.id }) {
+                modeMenu(mode)
+            }
+        }) {
             page
         }
         .frame(minWidth: PUI.Window.dashboardMin.width, minHeight: PUI.Window.dashboardMin.height)
         .puiAccent(.tuuli)
+        .alert("Rename Mode", isPresented: isRenaming) {
+            TextField("Name", text: $renameText)
+            Button("Cancel", role: .cancel) {}
+            Button("Rename") {
+                if let renamingModeID { store.renameMode(renamingModeID, to: renameText) }
+            }
+        }
+    }
+
+    /// What a mode offers from the sidebar, the same as in its own page.
+    @ViewBuilder
+    private func modeMenu(_ mode: Mode) -> some View {
+        Button("Use This Mode") { store.settings.activeModeID = mode.id }
+            .disabled(mode.id == store.settings.activeModeID)
+        Divider()
+        Button("Rename…") {
+            renameText = mode.name
+            renamingModeID = mode.id
+        }
+        Button("Duplicate") {
+            if let id = store.duplicateMode(mode.id) { selection = .mode(id) }
+        }
+        if !mode.isBuiltIn {
+            Divider()
+            Button("Delete", role: .destructive) {
+                if selection == .mode(mode.id) { selection = .pane(.overview) }
+                store.deleteMode(mode.id)
+            }
+        }
+    }
+
+    private var isRenaming: Binding<Bool> {
+        Binding(
+            get: { renamingModeID != nil },
+            set: { if !$0 { renamingModeID = nil } })
     }
 
     private var sections: [SidebarSection] {

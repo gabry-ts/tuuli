@@ -50,6 +50,8 @@ struct ModeEditorView: View {
             modeGroup
         }
         .onAppear { nameDraft = mode.name }
+        // A rename from the sidebar reaches the field too.
+        .onChange(of: mode.name) { _, name in nameDraft = name }
         .onChange(of: editingName) { _, editing in
             if !editing { commitName() }
         }
