@@ -21,6 +21,9 @@ cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 cp "$ROOT/Resources/$HELPER_LABEL.plist" "$APP/Contents/Resources/$HELPER_LABEL.plist"
 ditto "$BIN_DIR/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+# Partiti UI's built-in strings. It looks for its bundle in Contents/Resources; the bundle
+# holds no code and is sealed by the app's own signature.
+ditto "$BIN_DIR/PartitiUI_PartitiUI.bundle" "$APP/Contents/Resources/PartitiUI_PartitiUI.bundle"
 
 if [[ "$(otool -l "$APP/Contents/MacOS/Tuuli")" != *"@executable_path/../Frameworks"* ]]; then
     install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Tuuli"
