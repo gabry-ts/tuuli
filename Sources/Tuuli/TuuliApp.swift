@@ -159,9 +159,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        window.puiConfigureForSettings()
         // Partiti UI's sidebar runs under a clear title bar, past the traffic lights.
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
         window.setContentSize(PUI.Window.dashboard)
         window.minSize = PUI.Window.dashboardMin
         window.center()
