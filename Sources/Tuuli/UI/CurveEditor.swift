@@ -55,15 +55,8 @@ struct CurveEditor: View {
                                 .font(PUI.Font.body)
                                 .foregroundStyle(ink.primary)
                             StepperValue(unit.format(point.temperature), value: $point.temperature, in: Self.span)
-                            PUISlider(value: Binding(
-                                get: { point.percent },
-                                set: { point.percent = ($0 / 5).rounded() * 5 }
-                            ), in: 0...100)
-                            Text(verbatim: "\(Int(point.percent))%")
-                                .font(PUI.Font.callout)
-                                .monospacedDigit()
-                                .foregroundStyle(ink.secondary)
-                                .frame(width: 44, alignment: .trailing)
+                            PUISlider(value: $point.percent, in: 0...100, step: 5)
+                            ValueText("\(Int(point.percent))%", width: 44)
                             Button {
                                 points.removeAll { $0.id == point.id }
                             } label: {

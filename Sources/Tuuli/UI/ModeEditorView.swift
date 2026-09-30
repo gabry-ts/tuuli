@@ -175,10 +175,7 @@ struct FanConfigEditor: View {
                           font: .system(size: 52, weight: .light, design: .rounded).monospacedDigit())
                     .contentTransition(.numericText(value: config.manualPercent))
                     .animation(.smooth, value: config.manualPercent)
-                PUISlider(value: Binding(
-                    get: { config.manualPercent },
-                    set: { config.manualPercent = ($0 / 5).rounded() * 5 }
-                ), in: 0...100)
+                PUISlider(value: $config.manualPercent, in: 0...100, step: 5)
                 HStack(spacing: PUI.Space.xl) {
                     ForEach(monitor.fans) { fan in
                         let rpm = fan.rpm(forPercent: config.manualPercent)
@@ -263,14 +260,8 @@ private struct RuleSentence: View {
             }
             HStack(spacing: PUI.Space.m) {
                 Text("run fans at")
-                PUISlider(value: Binding(
-                    get: { rule.percent },
-                    set: { rule.percent = ($0 / 5).rounded() * 5 }
-                ), in: 0...100)
-                Text(verbatim: "\(Int(rule.percent))%")
-                    .monospacedDigit()
-                    .foregroundStyle(ink.secondary)
-                    .frame(width: 44, alignment: .trailing)
+                PUISlider(value: $rule.percent, in: 0...100, step: 5)
+                ValueText("\(Int(rule.percent))%", width: 44)
             }
             HStack(spacing: PUI.Space.s) {
                 Circle()

@@ -146,19 +146,15 @@ struct MenuContent: View {
                 }
             }
             .disabled(!helper.isReady)
-            .opacity(helper.isReady ? 1 : 0.5)
 
             if activeMode.kind == .manual {
                 HStack(spacing: PUI.Space.m) {
                     RowSymbol("wind")
-                    PUISlider(value: manualPercent, in: 0...100)
-                        // The fans follow once the drag ends, not on every step of it.
-                        .simultaneousGesture(DragGesture(minimumDistance: 0).onEnded { _ in applyNow() })
-                    Text(verbatim: "\(Int(activeMode.adapter.manualPercent))%")
-                        .font(PUI.Font.body)
-                        .monospacedDigit()
-                        .foregroundStyle(ink.secondary)
-                        .frame(width: 40, alignment: .trailing)
+                    // The fans follow once the drag ends, not on every step of it.
+                    PUISlider(value: manualPercent, in: 0...100, step: 5) { editing in
+                        if !editing { applyNow() }
+                    }
+                    ValueText("\(Int(activeMode.adapter.manualPercent))%", width: 40)
                 }
                 .disabled(!helper.isReady)
             }
@@ -185,7 +181,7 @@ struct MenuContent: View {
             get: { activeMode.adapter.manualPercent },
             set: { value in
                 if let index = store.settings.index(of: activeMode.id) {
-                    store.settings.modes[index].adapter.manualPercent = (value / 5).rounded() * 5
+                    store.settings.modes[index].adapter.manualPercent = value
                 }
             }
         )

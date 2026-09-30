@@ -31,10 +31,7 @@ struct AlertsView: View {
                     StepperValue("\(Int(store.settings.alertCooldownMinutes)) min",
                                  value: $store.settings.alertCooldownMinutes, in: 1...60)
                 }
-                SettingsRow("Play sound") {
-                    Toggle("Play sound", isOn: $store.settings.alertSound)
-                        .toggleStyle(PUISwitchStyle(showsLabel: false))
-                }
+                SwitchRow("Play sound", isOn: $store.settings.alertSound)
             }
         }
     }
@@ -77,10 +74,7 @@ struct LoggingView: View {
         @Bindable var store = store
         TuuliPane(.logging, subtitle: "Every reading written to a CSV file, for later.") {
             SettingsGroup("CSV", footer: "One file per day, named Tuuli-<date>.csv, with every sensor and fan as a column.") {
-                SettingsRow("Log to CSV") {
-                    Toggle("Log to CSV", isOn: $store.settings.logging.isEnabled)
-                        .toggleStyle(PUISwitchStyle(showsLabel: false))
-                }
+                SwitchRow("Log to CSV", isOn: $store.settings.logging.isEnabled)
                 SettingsRow("Every") {
                     StepperValue("\(Int(store.settings.logging.interval)) s", value: $store.settings.logging.interval, in: 1...300)
                 }
@@ -157,13 +151,10 @@ struct GeneralView: View {
             }
 
             SettingsGroup("General") {
-                SettingsRow("Launch at login") {
-                    Toggle("Launch at login", isOn: $launchAtLogin)
-                        .toggleStyle(PUISwitchStyle(showsLabel: false))
-                        .onChange(of: launchAtLogin) { _, enabled in
-                            enabled ? LoginItem.register() : LoginItem.unregister()
-                        }
-                }
+                SwitchRow("Launch at login", isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, enabled in
+                        enabled ? LoginItem.register() : LoginItem.unregister()
+                    }
                 if LoginItem.status == .requiresApproval {
                     SettingsRow("Login item needs approval") {
                         Button("Approve in System Settings…") { LoginItem.openSystemSettings() }

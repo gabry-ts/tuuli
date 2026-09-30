@@ -10,7 +10,7 @@ struct SensorField: View {
     @Binding var selection: String
 
     var body: some View {
-        Menu {
+        PopUpMenu(monitor.name(of: selection), symbol: "thermometer.medium") {
             Picker(title, selection: $selection) {
                 Section("Summary") {
                     ForEach(Aggregate.allCases, id: \.self) { aggregate in
@@ -30,13 +30,7 @@ struct SensorField: View {
             }
             .pickerStyle(.inline)
             .labelsHidden()
-        } label: {
-            PopUpField(monitor.name(of: selection), symbol: "thermometer.medium")
         }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
-        .fixedSize()
         .accessibilityLabel(title)
     }
 }
