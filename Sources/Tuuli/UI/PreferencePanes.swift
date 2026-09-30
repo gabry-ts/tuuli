@@ -206,6 +206,7 @@ struct AboutView: View {
                 version: Self.version,
                 checksAutomatically: $updater.automaticallyChecksForUpdates,
                 onCheckForUpdates: { updater.checkForUpdates() },
+                canCheckForUpdates: updater.canCheckForUpdates,
                 onBuyMeACoffee: { NSWorkspace.shared.open(Links.buyMeACoffee) })
                 .padding(.top, 44)
                 .padding(.horizontal, PUI.Space.xxl)

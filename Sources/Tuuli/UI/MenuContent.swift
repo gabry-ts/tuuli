@@ -31,6 +31,7 @@ struct MenuContent: View {
             PopoverFooter(
                 onSettings: openSettings,
                 onCheckForUpdates: { updater.checkForUpdates() },
+                canCheckForUpdates: updater.canCheckForUpdates,
                 onBuyMeACoffee: { NSWorkspace.shared.open(Links.buyMeACoffee) })
         }
         .puiAccent(.tuuli)

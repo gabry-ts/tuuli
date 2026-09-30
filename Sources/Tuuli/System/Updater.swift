@@ -9,11 +9,13 @@ import Sparkle
 final class Updater {
     @ObservationIgnored private let controller: SPUStandardUpdaterController
     @ObservationIgnored private var observation: NSKeyValueObservation?
-    private(set) var canCheckForUpdates = false
+    /// False while a check is running. Stays true for an updater that was never started.
+    private(set) var canCheckForUpdates = true
 
     /// Snapshots pass `start: false` so nothing checks the network.
     init(start: Bool = true) {
         controller = SPUStandardUpdaterController(startingUpdater: start, updaterDelegate: nil, userDriverDelegate: nil)
+        guard start else { return }
         observation = controller.updater.observe(\.canCheckForUpdates, options: [.initial, .new]) { [weak self] updater, _ in
             // Sparkle changes this on the main thread.
             MainActor.assumeIsolated { self?.canCheckForUpdates = updater.canCheckForUpdates }
