@@ -114,11 +114,15 @@ final class HelperClient {
         connection?.invalidate()
         connection = nil
         let label = HelperConstants.label
+        // install copies extended attributes, so a downloaded app hands its quarantine flag
+        // to the daemon files, and launchd refuses to load a quarantined plist.
         let script = """
         launchctl bootout system/\(label) 2>/dev/null || true
         mkdir -p /Library/PrivilegedHelperTools
         install -o root -g wheel -m 755 \(quoted(helper.path)) \(quoted(HelperConstants.installedBinary))
         install -o root -g wheel -m 644 \(quoted(plist.path)) \(quoted(HelperConstants.installedPlist))
+        xattr -d com.apple.quarantine \(quoted(HelperConstants.installedBinary)) 2>/dev/null || true
+        xattr -d com.apple.quarantine \(quoted(HelperConstants.installedPlist)) 2>/dev/null || true
         launchctl bootstrap system \(quoted(HelperConstants.installedPlist))
         """
         runPrivileged(script)
